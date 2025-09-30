@@ -1,0 +1,18 @@
+# Temporary and binary files
+*.log
+__pycache__
+__pycache__/*
+.cache/*
+.DS_Store
+*/.ipynb_checkpoints/*
+Icon[^M]
+
+# Data directories
+data/
+tokenized_data/
+tokenized_data_tfrecords/
+
+# Results and figure directories
+logs/
+models/
+plots/
