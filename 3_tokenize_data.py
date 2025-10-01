@@ -21,11 +21,12 @@ if __name__ == "__main__":
     tf_ops.gpu_growth()
 
     # Set user arguments
-    if len(argv) != 3:
-        raise ValueError("Please provide the model type and run ID as arguments.")
+    if len(argv) != 4:
+        raise ValueError("Please provide the model type, run ID, and save mode as arguments.")
     model_type = argv[1]
     run_id = int(argv[2])
-    print(f"[INFO] Model type: {model_type}, Run ID: {run_id}")
+    save_mode = argv[3]
+    print(f"[INFO] Model type: {model_type}, Run ID: {run_id}, Save Mode: {save_mode}")
 
     # Set hyperparameters
     tk_seq_len = 200  # sequence length for learnable tokenizers
@@ -65,30 +66,41 @@ if __name__ == "__main__":
         store_dir=f"tmp_{model_type}_{run_id}",
     )
 
-    # ---------- Load Tokenizer and Tokenize Data ---------- #
-    tokenizer = load_model(tokenizer_dir)
-    tokenized_data = tokenizer.tokenize_data(data)
+    if save_mode == "numpy":
+        # Load tokenizer and tokenize data
+        tokenizer = load_model(tokenizer_dir)
+        tokenized_data = tokenizer.tokenize_data(data)
 
-    # ---------- Save Tokenized Data ---------- #
-    # Save numpy arrays
-    for i, token_data in enumerate(tqdm(tokenized_data, desc="Saving tokenized data")):
-        np.save(
-            f"{tokenized_data_dir}/x_{i:0{len(str(len(tokenized_data)))}d}",
-            token_data,
+        # Save numpy arrays
+        for i, token_data in enumerate(tqdm(tokenized_data, desc="Saving tokenized data")):
+            np.save(
+                f"{tokenized_data_dir}/x_{i:0{len(str(len(tokenized_data)))}d}",
+                token_data,
+            )
+    elif save_mode == "tfrecord":
+        # Load tokenized data
+        token_files = sorted(glob(f"{tokenized_data_dir}/x_*.npy"))
+        tokenized_data = []
+        for file in tqdm(token_files, desc="Loading tokenized data"):
+            token_data = np.load(file)
+            tokenized_data.append(token_data)
+
+        # Re-seed for TFRecord shuffling
+        set_random_seed(813, op_determinism=True)
+        # NOTE: This ensures same train/val split across different tokenizers and runs.
+
+        # Save TFRecord dataset
+        tokenized_data = Data(tokenized_data, n_jobs=16)
+        tokenized_data.add_session_labels(
+            "session_id", np.arange(tokenized_data.n_sessions), "categorical"
         )
-
-    # Save TFRecord dataset
-    tokenized_data = Data(tokenized_data, n_jobs=16)
-    tokenized_data.add_session_labels(
-        "session_id", np.arange(tokenized_data.n_sessions), "categorical"
-    )
-    tokenized_data.add_extra_channel("raw_data", raw_data)
-    tokenized_data.save_tfrecord_dataset(
-        tfrecord_dir=tokenized_data_tf_dir,
-        sequence_length=81,
-        validation_split=0.1,
-        overwrite=True,
-    )
+        tokenized_data.add_extra_channel("raw_data", raw_data)
+        tokenized_data.save_tfrecord_dataset(
+            tfrecord_dir=tokenized_data_tf_dir,
+            sequence_length=81,
+            validation_split=0.1,
+            overwrite=True,
+        )
 
     # Clean up temporary data directory
     data.delete_dir()
