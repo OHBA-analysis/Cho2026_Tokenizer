@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
         plt.tight_layout()
         fig.savefig(
-            f"demographics_{label}.png",
+            f"{plot_dir}/demographics_{label}.png",
             dpi=300, bbox_inches="tight", transparent=False,
         )
         plt.close(fig)
