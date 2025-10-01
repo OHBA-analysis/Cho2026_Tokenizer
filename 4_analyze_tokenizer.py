@@ -162,7 +162,7 @@ if __name__ == "__main__":
         # shape: (n_models, n_tokens)
 
     # Get total number of tokens (using test set)
-    token_nums = [len(c) for c in test_counts]
+    token_nums = [len(c[c > 0]) for c in test_counts]
 
     # ---------- Visualization ---------- #
     # Set color palette
