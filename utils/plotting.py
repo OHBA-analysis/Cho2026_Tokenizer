@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+from osl_dynamics.analysis import power
 
 
 def save(fig, filename, **kwargs):
@@ -235,12 +236,42 @@ def plot_pve(dataframe, palette, filepath, ylim=None, fontsize=14):
         palette=palette,
         ax=ax,
     )
+    ax.legend(
+        loc="lower right",
+        title="Model",
+        fontsize=fontsize - 4,
+        title_fontsize=fontsize - 4,
+    )
     ax.spines[["top", "right"]].set_visible(False)
     ax.spines[["bottom", "left"]].set_linewidth(1.5)
     ax.set_ylim(ylim)
-    ax.set_xlabel("Model", fontsize=fontsize)
+    ax.set_xlabel("Dataset", fontsize=fontsize)
     ax.set_ylabel("Percentage of Variance Explained (%)", fontsize=fontsize)
     ax.tick_params(labelsize=fontsize)
     plt.tight_layout()
     save(fig, filepath, transparent=True)
+    return None
+
+def plot_channel_location(channel, plot_dir):
+    """Plots the location of a specific channel on the brain.
+
+    Parameters
+    ----------
+    channel : int or np.ndarray
+        The index or indices of the channel to plot.
+    plot_dir : str
+        Directory to save the plot.
+    """
+    # Define power map for the channel
+    power_map = np.zeros(52)
+    power_map[channel] = 1
+    
+    # Plot channel location using osl-dynamics
+    power.save(
+        power_map,
+        mask_file="MNI152_T1_8mm_brain.nii.gz",
+        parcellation_file="Glasser52_binary_space-MNI152NLin6_res-8x8x8.nii.gz",
+        plot_kwargs={"views": ["lateral", "medial"], "symmetric_cbar": True},
+        filename=f"{plot_dir}/channel_location_{channel}.png",
+    )
     return None

@@ -181,8 +181,8 @@ if __name__ == "__main__":
     df = pd.DataFrame({
         "PVE": pves.flatten(),
         "Dataset": np.tile(
-            [f"Train (n={n_train})"] * train_pves.shape[1] +
-            [f"Test (n={n_test})"] * test_pves.shape[1],
+            [f"Train (N={n_train})"] * train_pves.shape[1] +
+            [f"Test (N={n_test})"] * test_pves.shape[1],
             n_models,
         ),
         "Model": np.repeat(list(color_palette.keys()), pves.shape[1]),
@@ -301,8 +301,8 @@ if __name__ == "__main__":
     df = pd.DataFrame({
         "PVE": pves.flatten(),
         "Dataset": np.tile(
-            [f"Task (n={n_tasks})"] * task_pves.shape[1] +
-            [f"Scanner (n={n_scanners})"] * scanner_pves.shape[1],
+            [f"Task (N={n_tasks})"] * task_pves.shape[1] +
+            [f"Scanner (N={n_scanners})"] * scanner_pves.shape[1],
             n_models,
         ),
         "Model": np.repeat(list(color_palette.keys()), pves.shape[1]),
