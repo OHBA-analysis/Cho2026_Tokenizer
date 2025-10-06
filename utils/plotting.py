@@ -81,49 +81,52 @@ def plot_tokenizer_loss(
 
 def plot_token_count_histogram(
     token_counts,
+    tokenizer_name,
     filepath,
-    fontsize=14,
+    color="skyblue",
+    fontsize=12,
     transparent=True,
 ):
     """Plots histograms of token counts for training and test sets.
 
     Parameters
     ----------
-    token_counts : tuple of np.ndarray
-        Tuple containing token counts for training and test sets.
-        Each element is a numpy array with shape (n_tokens,).
+    token_counts : np.ndarray
+        Array of token counts for both training and test sets.
+        Shape should be (n_tokens,).
+    tokenizer_name : str
+        Name of the tokenizer.
     filepath : str
         Path where the plot will be saved.
+    color : str, optional
+        Color for the histogram bars. Default is 'skyblue'.
     fontsize : int, optional
         Font size for the plot labels and titles. Default is 14.
     transparent : bool, optional
         Whether to make the background of the plot transparent.
         Default is True.
     """
-    # Unpack input data
-    train_counts, test_counts = token_counts
-
     # Plot token histograms
-    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(11, 4))
-    ax[0].bar(
-        range(1, train_counts.shape[0] + 1),
-        train_counts,
-        color="skyblue",
-        edgecolor="black",
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4))
+    ax.bar(
+        range(1, token_counts.shape[0] + 1),
+        token_counts,
+        width=1,
+        color=color,
+        edgecolor=None,
+        linewidth=0,
+        alpha=0.6,
     )
-    ax[1].bar(
-        range(0, test_counts.shape[0]),
-        test_counts,
-        color="lightgreen",
-        edgecolor="black",
+    ax.set_xlabel("Token Index", fontsize=fontsize)
+    ax.set_ylabel("Number of Occurrences", fontsize=fontsize)
+    ax.set_title(
+        f"{tokenizer_name} (n={len(token_counts)})",
+        fontsize=fontsize + 2,
+        fontweight="bold",
     )
-    # NOTE: 0-th token is reserved for unseen tokens in the test data.
-    for i in range(2):
-        ax[i].set_xlabel("Token Index", fontsize=fontsize)
-        ax[i].tick_params(labelsize=fontsize)
-    ax[0].set_ylabel("Number of Occurrences", fontsize=fontsize)
-    ax[0].set_title(f"Training Set (N={len(train_counts)})", fontsize=fontsize)
-    ax[1].set_title(f"Test Set (N={len(test_counts)})", fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
+    if ax.yaxis.get_offset_text() is not None:
+        ax.yaxis.get_offset_text().set_fontsize(fontsize)
     plt.tight_layout()
     save(fig, filepath, transparent=transparent)
     return None

@@ -196,21 +196,22 @@ if __name__ == "__main__":
     )
 
     # Plot token count histograms for each tokenizer
+    colors = iter(color_palette.values())
+    tokenizer_names = iter(
+        ["Causal", "Noncausal"] + ["Mu"] * 4 + ["Standard Quantile"]
+    )
     for name, train_c, test_c in zip(model_names, train_counts, test_counts):
-        if name not in ["causal", "noncausal"]:
-            # Sort token counts in descending order
-            train_order = np.argsort(train_c)[::-1]
-            train_c = train_c[train_order]
-
-            test_order = np.argsort(test_c)[::-1]
-            test_c = test_c[test_order]
-        else:
-            # Remove tokens with zero counts
-            test_c = test_c[test_c > 0]
+        # Sort token counts in descending order
+        if name in ["causal", "noncausal"]:
+            train_c = np.insert(train_c, 0, 0)  # for unseen tokens in the test data
+            test_c = test_c[test_c > 0]  # remove tokens with zero counts
+        token_counts = np.sort(train_c + test_c)[::-1]
 
         up.plot_token_count_histogram(
-            (train_c, test_c),
+            token_counts,
+            tokenizer_name=next(tokenizer_names),
             filepath=os.path.join(plot_dir, f"{name}/token_count_hist.png"),
+            color=next(colors),
         )
 
     # Plot original and reconstructed signals (for single subject/channel)
