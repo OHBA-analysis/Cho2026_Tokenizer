@@ -39,9 +39,11 @@ if __name__ == "__main__":
     saved = False
 
     # ---------- Directories ---------- #
-    data_dir = "/well/win-camcan/shared/spring23/src"
-    model_dir = "models/tokenizer"
-    plot_dir = "plots/tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    DATA_DIR = "/well/win-camcan/shared/spring23/src"
+    
+    model_dir = os.path.join(BASE_DIR, "models/tokenizer")
+    plot_dir = os.path.join(BASE_DIR, "plots/tokenizer")
 
     # ---------- Training Loss (Causal & Noncausal) ---------- #
     # Get training history
@@ -67,7 +69,7 @@ if __name__ == "__main__":
 
     # ---------- Tokenizer Metrics ---------- #
     # Get data files
-    data_files = sorted(glob(f"{data_dir}/*/sflip_parc-raw.fif"))
+    data_files = sorted(glob(f"{DATA_DIR}/*/sflip_parc-raw.fif"))
 
     train_idx = np.array([
         38, 57, 421, 534, 413, 146, 245, 152, 410, 139, 79, 583, 489,
@@ -163,6 +165,7 @@ if __name__ == "__main__":
 
     # Get total number of tokens (using test set)
     token_nums = [len(c[c > 0]) for c in test_counts]
+    np.save(f"{model_dir}/token_nums.npy", token_nums)
 
     # ---------- Visualization ---------- #
     # Set color palette
