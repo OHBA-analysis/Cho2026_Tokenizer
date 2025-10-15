@@ -3,6 +3,7 @@
 import os
 import pickle
 import numpy as np
+import pandas as pd
 
 
 def save(data, save_path):
@@ -72,3 +73,67 @@ def get_tokenizer_history(model_dir):
     loss = np.array(history["loss"]) # shape: (n_epochs,)
     temperature = np.array(history["temperature"]) # shape: (n_epochs,)
     return loss, temperature
+
+
+def remove_outliers(data, threshold=3):
+    """Removes outliers from a 1D numpy array.
+    
+    Parameters
+    ----------
+    data : np.ndarray or list
+        1D array or list from which outliers are to be removed.
+    threshold : float, optional
+        Threshold in terms of standard deviations to identify outliers.
+        Default is 3.
+
+    Returns
+    -------
+    cleaned_data : np.ndarray
+        1D array with outliers removed.
+    """
+    # Convert to numpy array and validate input data
+    if isinstance(data, list):
+        data = np.array(data)
+    assert data.ndim == 1, "Data must be a 1D array."
+    
+    # Calculate outlier threshold
+    threshold *= np.std(data)
+    
+    # Remove outliers
+    mean = np.mean(data)
+    cleaned_data = data[np.abs(data - mean) <= threshold]
+    return cleaned_data
+
+
+def metric_dict_to_long(metric_dict):
+    """Converts a nested dictionary of metrics to a long-format DataFrame.
+
+    Parameters
+    ----------
+    metric_dict : dict
+        Nested dictionary where keys are model names and values are dictionaries
+        with dataset names as keys and 2D numpy arrays as values.
+        Shape is dict[model][dataset] -> np.ndarray of shape (n_subjects, n_channels).
+
+    Returns
+    -------
+    df : pd.DataFrame
+        A long-format DataFrame with columns(subject, model, dataset, channel, metric).
+    """
+    # Create pandas dataframe
+    df = []
+    for mod, ds in metric_dict.items():
+        for d, arr in ds.items():
+            n_subjects, n_channels = arr.shape
+            subjects, channels = np.meshgrid(
+                np.arange(n_subjects), np.arange(n_channels), indexing='ij'
+            )
+            df.append(pd.DataFrame({
+                "subject": subjects.ravel(),
+                "model": mod,
+                "dataset": d,
+                "channel": channels.ravel(),
+                "metric": arr.ravel().astype(float),
+            }))
+    
+    return pd.concat(df, ignore_index=True)
