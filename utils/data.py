@@ -105,8 +105,9 @@ def remove_outliers(data, threshold=3):
     return cleaned_data
 
 
-def metric_dict_to_long(metric_dict):
-    """Converts a nested dictionary of metrics to a long-format DataFrame.
+def static_metric_dict_to_long(metric_dict):
+    """Converts a nested dictionary of static spectral metrics to
+       a long-format DataFrame.
 
     Parameters
     ----------
@@ -118,7 +119,7 @@ def metric_dict_to_long(metric_dict):
     Returns
     -------
     df : pd.DataFrame
-        A long-format DataFrame with columns(subject, model, dataset, channel, metric).
+        Long-format DataFrame with columns (subject, model, dataset, channel, metric).
     """
     # Create pandas dataframe
     df = []
@@ -136,4 +137,36 @@ def metric_dict_to_long(metric_dict):
                 "metric": arr.ravel().astype(float),
             }))
     
+    return pd.concat(df, ignore_index=True)
+
+
+def dynamic_metric_dict_to_long(metric_dict):
+    """Converts a nested dictionary of dynamic spectral metrics to
+       a long-format DataFrame.
+
+    Parameters
+    ----------
+    metric_dict : dict
+        Nested dictionary with the shape dict[model][channel][dataset] ->
+        np.ndarray of shape (n_subjects,).
+
+    Returns
+    -------
+    df : pd.DataFrame
+        Long-format DataFrame with columns (subject, model, dataset, channel, metric).
+    """
+    # Create pandas dataframe
+    df = []
+    for mod, ch_data in metric_dict.items():
+        for ch_key, gen_data in ch_data.items():
+            ch_idx = int(ch_key[2:])  # extract channel index from keys
+            for gen_id, arr in gen_data.items():
+                n_subjects = arr.shape[0]
+                df.append(pd.DataFrame({
+                    "subject": np.arange(n_subjects, dtype=int),
+                    "model": mod,
+                    "dataset": gen_id,
+                    "channel": ch_idx,
+                    "metric": arr.astype(float),
+                }))
     return pd.concat(df, ignore_index=True)

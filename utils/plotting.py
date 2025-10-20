@@ -1,6 +1,7 @@
 """Functions for data visualization and plotting."""
 
 import os
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -9,7 +10,9 @@ from matplotlib import cm
 from matplotlib.ticker import ScalarFormatter
 from nilearn.plotting import plot_markers
 from osl_dynamics.analysis import power
+from osl_dynamics.utils.misc import override_dict_defaults
 from osl_dynamics.utils.parcellation import Parcellation
+from osl_dynamics.utils.plotting import create_figure
 from utils.array_ops import round_nonzero_decimal, round_up_half
 
 
@@ -742,4 +745,321 @@ def plot_model_dataset_interaction(
     plt.tight_layout()
     save(fig, filename, transparent=True)
     
+    return None
+
+
+def plot_alpha(
+    *alpha,
+    n_samples=None,
+    cmap="tab10",
+    sampling_frequency=None,
+    y_labels=None,
+    title=None,
+    fontsize=15,
+    plot_kwargs=None,
+    fig_kwargs=None,
+    filename=None,
+    axes=None,
+):
+    """Plot alpha.
+
+    Parameters
+    ----------
+    alpha : np.ndarray
+        A collection of alphas passed as separate arguments.
+    n_samples: int, optional
+        Number of time points to be plotted.
+    cmap : str or matplotlib.colors.ListedColormap, optional
+        Matplotlib colormap.
+    sampling_frequency : float, optional
+        The sampling frequency of the data in Hz.
+    y_labels : str, optional
+        Labels for the y-axis of each alpha time series.
+    title : str, optional
+        Title for the plot.
+    fontsize : int, optional
+        Font size for axes and tick labels. Defaults to 15.
+    plot_kwargs : dict, optional
+        Any parameters to be passed to plt.stackplot.
+    fig_kwargs : dict, optional
+        Arguments to pass to :code:`plt.subplots()`.
+    filename : str, optional
+        Output filename.
+    axes : list of plt.axes, optional
+        A list of matplotlib axes to plot on. If None, a new
+        figure is created.
+
+    Returns
+    -------
+    fig : plt.figure
+        Matplotlib figure object. Only returned if `ax=None` and
+        `filename=None`.
+    ax : plt.axes
+        Matplotlib axis object(s). Only returned if `ax=None` and
+        `filename=None`.
+    """
+    n_alphas = len(alpha)
+    if isinstance(axes, plt.Axes):
+        axes = [axes]
+    if axes is not None and len(axes) != n_alphas:
+        raise ValueError("Number of axes must match number of alphas.")
+
+    n_modes = max(a.shape[1] for a in alpha)
+    n_samples = min(n_samples or np.inf, alpha[0].shape[0])
+    if isinstance(cmap, str):
+        if cmap in [
+            "Pastel1",
+            "Pastel2",
+            "Paired",
+            "Accent",
+            "Dark2",
+            "Set1",
+            "Set2",
+            "Set3",
+            "tab10",
+            "tab20",
+            "tab20b",
+            "tab20c",
+        ]:
+            cmap = matplotlib.colormaps.get_cmap(cmap)
+        else:
+            cmap = matplotlib.colormaps.get_cmap(cmap, lut=n_modes)
+    cmap = cmap.copy()
+    colors = cmap.colors
+
+    # Validation
+    if fig_kwargs is None:
+        fig_kwargs = {}
+    default_fig_kwargs = dict(
+        figsize=(12, 2.5 * n_alphas), sharex="all", facecolor="white"
+    )
+    fig_kwargs = override_dict_defaults(default_fig_kwargs, fig_kwargs)
+
+    if plot_kwargs is None:
+        plot_kwargs = {}
+    default_plot_kwargs = dict(colors=colors)
+    plot_kwargs = override_dict_defaults(default_plot_kwargs, plot_kwargs)
+
+    if y_labels is None:
+        y_labels = [None] * n_alphas
+    elif isinstance(y_labels, str):
+        y_labels = [y_labels] * n_alphas
+    elif len(y_labels) != n_alphas:
+        raise ValueError("Incorrect number of y_labels passed.")
+
+    # Create figure if axes not passed
+    if axes is None:
+        fig, axes = create_figure(n_alphas, **fig_kwargs)
+    else:
+        fig = axes[0].get_figure()
+
+    if isinstance(axes, plt.Axes):
+        axes = [axes]
+
+    # Plot data
+    for a, ax, y_label in zip(alpha, axes, y_labels):
+        time_vector = (
+            np.arange(n_samples) / sampling_frequency
+            if sampling_frequency
+            else range(n_samples)
+        )
+        ax.stackplot(time_vector, a[:n_samples].T, **plot_kwargs)
+        ax.autoscale(tight=True)
+        ax.set_ylabel(y_label, fontsize=fontsize)
+        ax.tick_params(labelsize=fontsize)
+
+    # Set axis label and title
+    axes[-1].set_xlabel("Time (s)" if sampling_frequency else "Sample", fontsize=fontsize)
+    axes[0].set_title(title)
+
+    # Fix layout
+    plt.tight_layout()
+
+    # Add a colour bar
+    norm = matplotlib.colors.BoundaryNorm(
+        boundaries=range(n_modes + 1), ncolors=n_modes
+    )
+    mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    fig.subplots_adjust(right=0.94)
+    cb_ax = fig.add_axes([0.95, 0.15, 0.025, 0.7])
+    cb = fig.colorbar(mappable, cax=cb_ax, ticks=np.arange(0.5, n_modes, 1))
+    cb.ax.set_yticklabels(range(1, n_modes + 1))
+
+    # Save to file if a filename has been passed
+    if filename is not None:
+        save(fig, filename, transparent=True)
+    else:
+        return fig, axes
+
+
+def plot_hmm_loss(loss, filename, fontsize=12):
+    """Plots HMM training loss curve.
+    
+    Parameters
+    ----------
+    loss : np.ndarray
+        Array of training loss values over epochs.
+        Shape is (n_epochs,).
+    filename : str
+        Path where the plot will be saved.
+    fontsize : int, optional
+        Font size for the plot. Default is 12.
+    """
+    # Plot HMM loss curve
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4))
+    epochs = np.arange(1, len(loss) + 1)
+    ax.plot(epochs, loss, label="Training Loss")
+    ax.set_xlabel("Epochs", fontsize=fontsize)
+    ax.set_ylabel("Loss", fontsize=fontsize)
+    for axis in ["top", "bottom", "left", "right"]:
+            ax.spines[axis].set_linewidth(2)
+    plt.tight_layout()
+    save(fig, filename, transparent=True)
+    
+    return None
+
+
+def plot_dynamic_psds(
+    freq,
+    psds,
+    filename,
+    colors,
+    xlim=None,
+    ylim=None,
+    legend=True,
+    fontsize=18,
+):
+    """Plots the state-wise power spectral densities (PSDs) from 
+       univariate TDE-HMM.
+
+    Parameters
+    ----------
+    freq : np.ndarray
+        Frequencies corresponding to the PSD.
+        Shape is (n_freqs,).
+    psds : np.ndarray
+        Power spectral densities of the HMM states.
+        Shape is (n_subjects, n_states, n_freqs).
+    filename : str
+        Path where the plot will be saved.
+    colors : list of str
+        List of colors for each state.
+    xlim : list of float, optional
+        X-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
+    ylim : list of float, optional
+        Y-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
+    legend : bool, optional
+        Whether to display the legend. Default is True.
+    fontsize : int, optional
+        Font size for the plot. Default is 18.
+    """
+    # Compute mean and standard deviation across subjects/sessions
+    group_psd = np.mean(psds, axis=0)
+    group_std = np.std(psds, axis=0)
+    # shape: (n_states, n_frequencies)
+
+    # Get number of states
+    n_states = group_psd.shape[0]
+
+    # Plot state-wise PSDs
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(7, 5))
+    for n in range(n_states):
+        ax.plot(
+            freq, group_psd[n], color=colors[n], label=f"State {n+1}"
+        )
+        ax.fill_between(
+            freq,
+            group_psd[n] - group_std[n],
+            group_psd[n] + group_std[n],
+            color=colors[n],
+            alpha=0.3,
+        )
+    for axis in ["top", "bottom", "left", "right"]:
+        ax.spines[axis].set_linewidth(1.5)
+    if legend:
+        ax.legend(loc="upper right", fontsize=fontsize - 2)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.set_xlabel("Frequency (Hz)", fontsize=fontsize)
+    ax.set_ylabel("PSD (a.u.)", fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
+    plt.tight_layout()
+    save(fig, filename, transparent=True)
+
+    return None
+
+
+def plot_summary_stats(
+    summary_stats,
+    metric_name,
+    filename,
+    palette=None,
+    ylim=None,
+    fontsize=18,
+):
+    """Plots selected summary statistics computed from HMM 
+       state time courses.
+
+    Parameters
+    ----------
+    summary_stats : pd.DataFrame
+        DataFrame containing summary statistics with columns
+        "Value", "Metric", "Subject", and "State".
+    metric_name : str
+        Name of the metric to plot. Should be one of
+        "fo", "lt", "intv", or "sr".
+    filename : str
+        Path where the plot will be saved.
+    palette : dict, optional
+        Color palette for different states.
+        Keys are state indices (0, 1, 2, ...), and values are color codes.
+        Default is None, which uses seaborn's default palette.
+    ylim : list of float, optional
+        Y-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
+    fontsize : int, optional
+        Font size for the plot. Default is 18.
+    """
+    # Set metric labels
+    metric_labels = {
+        "fo": "Fractional Occupancy",
+        "lt": "Mean Lifetime (s)",
+        "intv": "Mean Interval (s)",
+        "sr": "Burst Rate (Hz)",
+    }
+
+    # Extract metric values
+    metric_values = summary_stats[
+        summary_stats["Metric"] == metric_name
+    ]
+
+    # Visualize summary statistics
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(3.5, 5))
+    sns.violinplot(
+        data=metric_values,
+        x="State",
+        y="Value",
+        hue="State",
+        inner="box",
+        palette=palette,
+        saturation=0.5,
+        legend=False,
+        ax=ax,
+    )
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.spines[["bottom", "left"]].set_linewidth(1.5)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.set_xticks(ax.get_xticks())
+    ax.set_xticklabels([int(tick) + 1 for tick in ax.get_xticks()])
+    ax.set_xlabel("State", fontsize=fontsize)
+    ax.set_ylabel(metric_labels[metric_name], fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
+    plt.tight_layout()
+    save(fig, filename, transparent=True)
+
     return None

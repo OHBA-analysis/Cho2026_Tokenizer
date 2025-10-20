@@ -86,7 +86,7 @@ if __name__ == "__main__":
         freq, psd_real, psd_gen = ud.load(save_path)
 
     # ---------- Set visualization parameters ---------- #
-    # Set color palette
+    # Set color palettes
     token_nums = np.load(f"{BASE_DIR}/models/tokenizer/token_nums.npy")
     color_palette = {
         f"Causal (n={token_nums[0]})": "#E69F00",
@@ -155,10 +155,10 @@ if __name__ == "__main__":
     print("Saving distance metrics ...")
     save_path = f"{DATA_DIR}/static_gt{gt_run_id}_.csv"
     
-    df_l2 = ud.metric_dict_to_long(l2_dist)
+    df_l2 = ud.static_metric_dict_to_long(l2_dist)
     df_l2.to_csv(save_path.replace(".csv", "l2.csv"), index=False)
 
-    df_cos = ud.metric_dict_to_long(cos_sim)
+    df_cos = ud.static_metric_dict_to_long(cos_sim)
     df_cos.to_csv(save_path.replace(".csv", "cos.csv"), index=False)
 
     # ---------- Visualize Metrics ---------- #
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     )
 
     # Load cosine similarity metrics and estimated marginal means (EMMs)
-    cos_sim = pd.read_csv(f"{METRIC_DIR}/subject_means_cos.csv")  # metrics per subject, averaged over datasets
+    cos_sim = pd.read_csv(f"{METRIC_DIR}/subject_means_cos.csv")  # cosine similarity per subject, averaged over datasets
     emm_model_cos = pd.read_csv(f"{METRIC_DIR}/emm_model_cos.csv")  # estimated marginal means (EMMs) per model
 
     cos_sim["model"] = pd.Categorical(
