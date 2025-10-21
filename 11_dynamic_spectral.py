@@ -293,6 +293,7 @@ if __name__ == "__main__":
         metric_name="L2 Distance",
         palette=color_palette_1,
         x_labels=x_labels,
+        ylim=[None, 1.6],
         filename=os.path.join(fig_dir, "l2_dynamic_psds.png"),
     )
 
@@ -315,7 +316,7 @@ if __name__ == "__main__":
     )
 
     # Load L2 distance metrics and estimated marginal means (EMMs) for burst rates
-    l2_distances = pd.read_csv(f"{METRIC_DIR}/subject_means_l2_sr.csv")  # L2 distances per subject, averaged over datasets
+    l2_distances = pd.read_csv(f"{METRIC_DIR}/subject_means_l2_sr.csv")  # L2 distances per subject, averaged over datasets and channels
     emm_model_l2 = pd.read_csv(f"{METRIC_DIR}/emm_model_l2_sr.csv")  # estimated marginal means (EMMs) per model
 
     l2_distances["model"] = pd.Categorical(
@@ -337,6 +338,7 @@ if __name__ == "__main__":
         metric_name="L2 Distance",
         palette=color_palette_1,
         x_labels=x_labels,
+        ylim=[None, 1.2],
         filename=os.path.join(fig_dir, "l2_dynamic_sr.png"),
     )
 
