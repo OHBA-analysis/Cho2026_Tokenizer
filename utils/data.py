@@ -105,6 +105,38 @@ def remove_outliers(data, threshold=3):
     return cleaned_data
 
 
+def get_outliers(data, method="iqr", threshold=None):
+    """Identifies outliers in a 1D numpy array.
+    
+    Parameters
+    ----------
+    data : np.ndarray or list
+        1D array or list from which outliers are to be identified.
+    method : str, optional
+        Method to identify outliers. Options are "iqr" (interquartile range)
+        and "std" (standard deviation). Default is "iqr".
+    threshold : float, optional
+        Threshold in terms of standard deviations to identify outliers when 
+        method is "std". Default is None. Must be provided if method is "std".
+    """
+    # Get outliers based on specified method
+    if method == "iqr":
+        q1, q3 = np.percentile(data, [25, 75])
+        iqr = q3 - q1  # interquartile range
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+    elif method == "std":
+        if threshold is None:
+            raise ValueError("Threshold must be provided for 'std' method.")
+        mean = np.mean(data)
+        std = np.std(data)
+        lower_bound = mean - threshold * std
+        upper_bound = mean + threshold * std
+    outliers = data[(data < lower_bound) | (data > upper_bound)]
+    
+    return outliers
+
+
 def static_metric_dict_to_long(metric_dict):
     """Converts a nested dictionary of static spectral metrics to
        a long-format DataFrame.
