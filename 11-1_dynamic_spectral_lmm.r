@@ -14,7 +14,7 @@ library(dplyr)
 
 # Set user hyperparameters
 metric_name = "l2_psd"
-metric_file_path = "models/generator/dynamic_gt1_l2_psd.csv"
+metric_file_path = "data/dynamic_gt1_l2_psd.csv"
 
 # ---------- Load data ----------
 df <- read_csv(metric_file_path, show_col_types = FALSE) |>
