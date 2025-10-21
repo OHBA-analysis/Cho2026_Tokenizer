@@ -4,6 +4,7 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import seaborn as sns
 
 from matplotlib import cm
@@ -1059,6 +1060,157 @@ def plot_summary_stats(
     ax.set_xlabel("State", fontsize=fontsize)
     ax.set_ylabel(metric_labels[metric_name], fontsize=fontsize)
     ax.tick_params(labelsize=fontsize)
+    plt.tight_layout()
+    save(fig, filename, transparent=True)
+
+    return None
+
+
+def plot_top_k_accuracy(
+    pred_accuracy,
+    model_names,
+    palette,
+    filename,
+    fontsize=14,
+):
+    """Plots top-k accuracy curves for different models.
+    
+    Parameters
+    ----------
+    pred_accuracy : dict
+        Dictionary containing top-k accuracy data for each model.
+        Keys are model names, and values are list. Each list contains
+        a list of top-k accuracy floats from different data generations.
+        Each top-k accuracy list has shape (n_subjects,).
+    model_names : list of str
+        List of model names to be plotted.
+    palette : dict
+        Color palette for different models.
+        Keys are model names, and values are color codes.
+    filename : str
+        Path where the plot will be saved.
+    fontsize : int, optional
+        Font size for the plot. Default is 14.
+    """
+    # Get the number of subjects
+    n_subjects = len(pred_accuracy[model_names[0]][0])
+
+    # Create x-axis and random baseline
+    x = range(1, n_subjects + 1)
+    random_baseline = np.arange(1, n_subjects + 1) / n_subjects
+
+    # Get color keys
+    color_keys = list(palette.keys())
+
+    # Plot top-k accuracy curve for each model
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5))
+    ax.plot(x, random_baseline, lw=2, ls="--", color="k", label="Random")
+    for n, mod in enumerate(model_names):
+        mean_accuracy = np.mean(pred_accuracy[mod], axis=0)  # average over data generations
+        std_accuracy = np.std(pred_accuracy[mod], axis=0)  # std over data generations
+        ax.plot(
+            x, mean_accuracy,
+            lw=2, color=palette[color_keys[n]],
+            label=color_keys[n].replace("\n", " "),
+        )
+        ax.fill_between(
+            x, mean_accuracy - std_accuracy, mean_accuracy + std_accuracy,
+            color=palette[color_keys[n]], alpha=0.3,
+        )
+    for axis in ["top", "bottom", "left", "right"]:
+        ax.spines[axis].set_linewidth(1.5)
+    ax.set_xlabel("Top-k", fontsize=fontsize)
+    ax.set_ylabel("Mean Accuracy (±1 SD)", fontsize=fontsize)
+    ax.tick_params(width=1.5, labelsize=fontsize)
+    ax.legend(loc="lower right", fontsize=fontsize - 3)
+    plt.tight_layout()
+    save(fig, filename, transparent=True)
+
+    return None
+
+
+def plot_fingerprint_box(
+    metrics,
+    metric_name,
+    model_names,
+    palette,
+    filename,
+    ylim=None,
+    strip=False,
+    fontsize=14,
+):
+    """Plots boxplots for subject fingerprinting metrics across different models.
+    
+    Parameters
+    ----------
+    metrics : dict
+        Dictionary containing fingerprinting metric data for each model.
+        Keys are model names, and values are list. Each list contains
+        a list of metric floats from different data generations.
+    metric_name : str
+        Name of the metric to use.
+    model_names : list of str
+        List of model names to be plotted.
+    palette : dict
+        Color palette for different models.
+        Keys are model names, and values are color codes.
+    filename : str
+        Path where the plot will be saved.
+    ylim : list of float, optional
+        Y-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
+    strip : bool, optional
+        Whether to overlay a strip plot on the box plot.
+        Default is False.
+    fontsize : int, optional
+        Font size for the plot. Default is 14.
+    """
+    # Change keys of palette to model names
+    color_keys = list(palette.keys())
+    palette = {
+        model_names[i]: palette[color_keys[i]]
+        for i in range(len(model_names))
+    }
+
+    # Plot boxplots for fingerprinting metrics
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5))
+    df_metric = pd.DataFrame(metrics).melt(
+        var_name="Model", value_name=metric_name,
+    )
+    sns.boxplot(
+        data=df_metric,
+        x="Model",
+        y=metric_name,
+        hue="Model",
+        hue_order=model_names,
+        palette=palette,
+        saturation=0.6,
+        legend=False,
+        ax=ax,
+    )
+    if strip:
+        sns.stripplot(
+            data=df_metric,
+            x="Model",
+            y=metric_name,
+            hue="Model",
+            hue_order=model_names,
+            palette=palette,
+            linewidth=1.5,
+            alpha=0.4,
+            jitter=0.15,
+            ax=ax,
+        )
+    for axis in ["top", "bottom", "left", "right"]:
+        ax.spines[axis].set_linewidth(1.5)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    xticks = ax.get_xticks()
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(color_keys)
+    ax.set_xlabel("Model", fontsize=fontsize)
+    ax.set_ylabel(metric_name, fontsize=fontsize)
+    ax.tick_params(width=1.5, labelsize=fontsize)
     plt.tight_layout()
     save(fig, filename, transparent=True)
 
