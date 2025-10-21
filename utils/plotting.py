@@ -15,6 +15,7 @@ from osl_dynamics.utils.misc import override_dict_defaults
 from osl_dynamics.utils.parcellation import Parcellation
 from osl_dynamics.utils.plotting import create_figure
 from utils.array_ops import round_nonzero_decimal, round_up_half
+from utils.data import get_outliers
 
 
 def save(fig, filename, **kwargs):
@@ -627,7 +628,9 @@ def plot_metric_violin(
     metric_name,
     palette,
     filename,
+    ascending=True,
     x_labels=None,
+    ylim=None,
     plot_strip=False,
 ):
     """Plots violin plots for a specific metric across different models.
@@ -651,16 +654,39 @@ def plot_metric_violin(
         Keys are model names, and values are color codes.
     filename : str
         Path where the plot will be saved.
+    ascending : bool, optional
+        Whether to sort models in ascending order based on EMMs. Default is True.
     x_labels : list of str, optional
         Custom x-axis labels. If None, model names from the palette keys
         will be used. Default is None.
+    ylim : list of float, optional
+        Y-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
     plot_strip : bool, optional
         Whether to overlay a strip plot on the violin plot.
         Default is False.
     """
+    # Sort the DataFrame by the estimated marginal means (EMMs)
+    numeric_order = np.argsort(emm_df["emmean"].to_numpy())
+    if not ascending:
+        numeric_order = numeric_order[::-1]
+    sorted_emm_df = emm_df.iloc[numeric_order].reset_index(drop=True)
+    order = sorted_emm_df["model"].to_list()
+
+    # Get new numeric order based on predefined model vocabulary
+    model_vocab = [
+        "causal", "noncausal",
+        "mu_transform", "mu_transform_big",
+        "mu_transform_small", "mu_transform_tiny",
+        "standard_quantile",
+    ]
+    numeric_order = [model_vocab.index(model) for model in order]
+
+    # Visualize violin plots for the specified metric
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5))
     sns.violinplot(
         data=df, x=x, y=y, hue=hue,
+        order=order, hue_order=order,
         inner="quart", # cut=0,
         palette=palette,
         ax=ax,
@@ -668,6 +694,8 @@ def plot_metric_violin(
     if plot_strip:
         sns.stripplot(
             data=df, x=x, y=y,
+            order=order,
+            hue_order=order,
             color="k", alpha=0.4,
             jitter=0.15,
             ax=ax,
@@ -675,20 +703,38 @@ def plot_metric_violin(
     ax.spines[["top", "right"]].set_visible(False)
     ax.spines[["bottom", "left"]].set_linewidth(1.5)
     ax.errorbar(
-        x=emm_df["model"].cat.codes,
-        y=emm_df["emmean"],
+        x=np.arange(len(sorted_emm_df)),
+        y=sorted_emm_df["emmean"],
         yerr=[
-            emm_df["emmean"] - emm_df["asymp.LCL"],
-            emm_df["asymp.UCL"] - emm_df["emmean"],
+            sorted_emm_df["emmean"] - sorted_emm_df["asymp.LCL"],
+            sorted_emm_df["asymp.UCL"] - sorted_emm_df["emmean"],
         ],
         fmt="o", capsize=6, linewidth=2, markersize=6, color="white",
     )
+
+    # Add outlier points
+    for i, model in enumerate(order):
+        model_data = df[df[x] == model][y].values
+        outliers = get_outliers(model_data, method="std", threshold=3)
+        ax.scatter(
+            [i] * len(outliers),
+            outliers,
+            marker="x",
+            s=30,
+            color="0.2",
+            alpha=0.6,
+        )
+
+    # Configure axis settings
+    if ylim is not None:
+        ax.set_ylim(ylim)
     xticks = ax.get_xticks()
     ax.set_xticks(xticks)
     if x_labels is None:
-        ax.set_xticklabels(list(palette.keys()))
+        color_keys = list(palette.keys())
+        ax.set_xticklabels([color_keys[i] for i in numeric_order])
     else:
-        ax.set_xticklabels(x_labels)
+        ax.set_xticklabels([x_labels[i] for i in numeric_order])
     ax.set_xlabel("Model")
     ax.set_ylabel(metric_name)
     plt.tight_layout()

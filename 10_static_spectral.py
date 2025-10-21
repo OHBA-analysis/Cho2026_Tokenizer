@@ -175,7 +175,7 @@ if __name__ == "__main__":
         )
 
     # Load L2 distance metrics and estimated marginal means (EMMs)
-    l2_distances = pd.read_csv(f"{METRIC_DIR}/subject_means_l2.csv")  # L2 distances per subject, averaged over datasets
+    l2_distances = pd.read_csv(f"{METRIC_DIR}/subject_means_l2.csv")  # L2 distances per subject, averaged over datasets and channels
     emm_model_l2 = pd.read_csv(f"{METRIC_DIR}/emm_model_l2.csv")  # estimated marginal means (EMMs) per model
 
     l2_distances["model"] = pd.Categorical(
@@ -197,6 +197,7 @@ if __name__ == "__main__":
         metric_name="L2 Distance",
         palette=color_palette_1,
         x_labels=x_labels,
+        ylim=[None, 0.22],
         filename=os.path.join(PLOT_DIR, "l2_distances.png"),
     )
 
@@ -219,7 +220,7 @@ if __name__ == "__main__":
     )
 
     # Load cosine similarity metrics and estimated marginal means (EMMs)
-    cos_sim = pd.read_csv(f"{METRIC_DIR}/subject_means_cos.csv")  # cosine similarity per subject, averaged over datasets
+    cos_sim = pd.read_csv(f"{METRIC_DIR}/subject_means_cos.csv")  # cosine similarity per subject, averaged over datasets and channels
     emm_model_cos = pd.read_csv(f"{METRIC_DIR}/emm_model_cos.csv")  # estimated marginal means (EMMs) per model
 
     cos_sim["model"] = pd.Categorical(
@@ -240,7 +241,9 @@ if __name__ == "__main__":
         emm_df=emm_model_cos,
         metric_name="Cosine Similarity",
         palette=color_palette_1,
+        ascending=False,
         x_labels=x_labels,
+        ylim=[None, 1.0],
         filename=os.path.join(PLOT_DIR, "cosine_similarities.png"),
     )
 
