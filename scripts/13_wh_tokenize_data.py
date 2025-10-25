@@ -37,6 +37,7 @@ if __name__ == "__main__":
     # Set hyperparameters
     tk_seq_len = 200  # sequence length for learnable tokenizers
     Fs = 250  # sampling frequency
+    n_sessions = 6  # number of sessions per subject (19 subjects in total)
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
@@ -79,14 +80,6 @@ if __name__ == "__main__":
         n_jobs=12,
     )
 
-    # Get subject IDs
-    subject_ids = np.repeat(np.arange(19), 6)  # 19 subjects, 6 runs each
-
-    if len(subject_ids) != data.n_sessions:
-        raise ValueError(
-            "Length of subject IDs does not match number of sessions."
-        )
-
     # ---------- Tokenize Data ---------- #
     if save_mode == "numpy":
         # Load tokenizer and tokenize data
@@ -96,8 +89,10 @@ if __name__ == "__main__":
         # Save numpy arrays
         for i, token_data in enumerate(tqdm(tokenized_data, desc="Saving tokenized data")):
             session_id = data_files[i].split("/")[-2]
+            subject_id = session_id.split("_")[0]
+            os.makedirs(f"{tokenized_data_dir}/{subject_id}", exist_ok=True)
             np.save(
-                f"{tokenized_data_dir}/{session_id}.npy",
+                f"{tokenized_data_dir}/{subject_id}/{session_id}.npy",
                 token_data,
             )
 
@@ -116,36 +111,52 @@ if __name__ == "__main__":
 
         for ts, file in zip(tokenized_ts, data_files):
             session_id = file.split("/")[-2]
+            subject_id = session_id.split("_")[0]
+            os.makedirs(f"{tokenized_data_fif_dir}/{subject_id}", exist_ok=True)
             raw = modes.convert_to_mne_raw(ts, file)
             raw.save(
-                f"{tokenized_data_fif_dir}/{session_id}_raw.fif", overwrite=True
+                f"{tokenized_data_fif_dir}/{subject_id}/{session_id}_raw.fif", overwrite=True
             )
 
         # Clean up temporary data directory
         tokenized_data.delete_dir()
 
     elif save_mode == "tfrecord":
-        # Load tokenized data
-        token_files = sorted(glob(f"{tokenized_data_dir}/*.npy"))
-        tokenized_data = []
-        for file in tqdm(token_files, desc="Loading tokenized data"):
-            token_data = np.load(file)
-            tokenized_data.append(token_data)
-
-        # Re-seed for TFRecord shuffling
+        # Re-seed for TFRecord shuffling (safeguard)
         set_random_seed(813, op_determinism=True)
 
-        # Save TFRecord dataset
-        tokenized_data = Data(tokenized_data, n_jobs=16)
-        tokenized_data.add_session_labels(
-            "session_id", subject_ids, "categorical"
-        ) # NOTE: While the IDs are labelled as session IDs, they correspond to subject IDs here.
-        tokenized_data.add_extra_channel("raw_data", raw_data)
-        tokenized_data.save_tfrecord_dataset(
-            tfrecord_dir=tokenized_data_tf_dir,
-            sequence_length=81,
-            overwrite=True,
-        )
+        # Get unique subject IDs
+        subject_ids = sorted(list(set(
+            [file.split("/")[-2].split("_")[0] for file in data_files]
+        )))
+
+        for i, subject_id in enumerate(subject_ids):
+            # Create subject-specific directory
+            os.makedirs(f"{tokenized_data_tf_dir}/{subject_id}", exist_ok=True)
+
+            # Load tokenized data
+            token_files = sorted(glob(f"{tokenized_data_dir}/{subject_id}/*.npy"))
+            tokenized_data = []
+            for file in tqdm(token_files, desc="Loading tokenized data"):
+                token_data = np.load(file)
+                tokenized_data.append(token_data)
+
+            # Save TFRecord dataset
+            tokenized_data = Data(tokenized_data, n_jobs=16)
+            tokenized_data.add_session_labels(
+                "session_id",
+                np.zeros((n_sessions,), dtype=np.int32),
+                "categorical",
+            )  # NOTE: While the labels are called session IDs here, they correspond
+               #       to subject labels for each session.
+            tokenized_data.add_extra_channel(
+                "raw_data", raw_data[i * n_sessions:(i + 1) * n_sessions]
+            )
+            tokenized_data.save_tfrecord_dataset(
+                tfrecord_dir=f"{tokenized_data_tf_dir}/{subject_id}",
+                sequence_length=81,
+                overwrite=True,
+            )
 
     # Clean up temporary data directory
     data.delete_dir()
