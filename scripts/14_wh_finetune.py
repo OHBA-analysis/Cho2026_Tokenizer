@@ -30,6 +30,10 @@ if __name__ == "__main__":
           f"| Pre-Trained Generator Run ID: {pt_run_id} | Decoding Model Run ID: {dc_run_id} " + 
           f"| Fine Tuning Mode: {ft_mode}")
 
+    # Validate inputs
+    if ft_mode not in ["fine_tune", "zero_shot"]:
+        raise ValueError("Fine tuning mode must be either 'fine_tune' or 'zero_shot'.")
+
     # Set random seed for Python random, NumPy, and TensorFlow
     BASE_SEED = 813
     set_random_seed(BASE_SEED + 100 * dc_run_id, op_determinism=False)
@@ -50,6 +54,10 @@ if __name__ == "__main__":
 
     # ---------- Build Generator ---------- #
     decoding_model = create_model(f"{model_dir}/config.yml")
+    if ft_mode == "fine_tune":
+        decoding_model.model.get_layer("decoder").trainable = True
+        decoding_model.model.get_layer("prediction_head").trainable=True
+        decoding_model.compile()
     decoding_model.summary()
 
     # ---------- Load Data ---------- #
