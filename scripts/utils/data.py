@@ -2,8 +2,13 @@
 
 import os
 import pickle
+import math
+import mne
 import numpy as np
 import pandas as pd
+import tensorflow as tf
+from tqdm.auto import tqdm
+from utils import analysis as ua
 
 
 def save(data, save_path):
@@ -73,6 +78,38 @@ def get_tokenizer_history(model_dir):
     loss = np.array(history["loss"]) # shape: (n_epochs,)
     temperature = np.array(history["temperature"]) # shape: (n_epochs,)
     return loss, temperature
+
+
+def get_generator_history(model_dir):
+    """Reads training history of a trained generator model.
+
+    Parameters
+    ----------
+    model_dir : str
+        Directory where the model is stored.
+    
+    Returns
+    -------
+    train_loss : np.ndarray
+        Training loss per epoch.
+    val_loss : np.ndarray
+        Validation loss per epoch.
+    train_top1_acc : np.ndarray
+        Training top-1 accuracy per epoch.
+    val_top1_acc : np.ndarray
+        Validation top-1 accuracy per epoch.
+    """
+    # Load history object
+    data_file = os.path.join(model_dir, "history.pkl")
+    history = load(data_file)
+
+    train_loss = np.array(history["loss"])
+    val_loss = np.array(history["val_loss"])
+    train_top1_acc = np.array(history["top_1"])
+    val_top1_acc = np.array(history["val_top_1"])
+    # shape: (n_epochs,)
+
+    return train_loss, val_loss, train_top1_acc, val_top1_acc
 
 
 def remove_outliers(data, threshold=3):
@@ -202,3 +239,267 @@ def dynamic_metric_dict_to_long(metric_dict):
                     "metric": arr.astype(float),
                 }))
     return pd.concat(df, ignore_index=True)
+
+
+def find_task_events(raw):
+    """Finds task-related events in the raw MNE data.
+
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        Raw MNE data object.
+
+    Returns
+    -------
+    events : np.ndarray
+        Array of events found in the raw data. Shape is (n_events, 3).
+    new_event_ids : dict
+        Dictionary mapping event names to new event codes.
+    """
+    # Define event mappings
+    new_event_ids = {"famous": 1, "unfamiliar": 2, "scrambled": 3, "button": 4}
+    old_event_ids = {
+        "famous": [5, 6, 7],
+        "unfamiliar": [13, 14, 15],
+        "scrambled": [17, 18, 19],
+        "buttonp": [
+            256, 261, 262, 263, 269,
+            270, 271, 273, 274, 275,
+            4096, 4101, 4102, 4103, 4109,
+            4110, 4111, 4114, 4114, 4115,
+            4352, 4357, 4359, 4365, 4369,
+        ],
+    }  # NEED EDIT: Why do we need two "4114"s here?
+
+    # Find events and remap event codes
+    events = mne.find_events(raw, min_duration=0.005, verbose=False)
+    for old_event_codes, new_event_codes in zip(
+        old_event_ids.values(), new_event_ids.values()
+    ):
+        events = mne.merge_events(events, old_event_codes, new_event_codes)
+    return events, new_event_ids
+
+
+def get_event_trials_and_labels(fif_files, sequence_length):
+    """Extracts event-related trials and labels from a list of FIF files.
+
+    Parameters
+    ----------
+    fif_files : list of str
+        List of paths to FIF files.
+    sequence_length : int
+        Sequence length in samples for epoching.
+
+    Returns
+    -------
+    trials : list of np.ndarray
+        List of 3D numpy arrays containing trials for each session.
+        Each array has shape (n_trials, n_samples, n_channels).
+    trial_labels : list of np.ndarray
+        List of 1D numpy arrays containing task labels for each session.
+        Each array has shape (n_trials,).
+    """
+    # Extract trials and labels for each session
+    trials, trial_labels = [], []
+    for file in fif_files:
+        raw = mne.io.read_raw_fif(file, preload=True, verbose=False)
+        events, event_ids = find_task_events(raw)
+        epochs = mne.Epochs(
+            raw,
+            events,
+            event_id=event_ids,
+            tmin=0.0,
+            tmax=sequence_length / raw.info["sfreq"],
+            baseline=None,
+            preload=True,
+            verbose=False,
+            on_missing="ignore",  # proceed silently if no events found
+        )
+
+        trial, trial_label = [], []
+        for key in ["famous", "unfamiliar", "scrambled", "button"]:
+            epoch_data = np.transpose(epochs[key].get_data(picks="misc"), (0, 2, 1))
+            trial.extend(epoch_data)
+            trial_label.extend([key] * len(epoch_data))
+
+        trial = np.array(trial)
+        trial_label = np.array(trial_label)
+        trials.append(trial)
+        trial_labels.append(trial_label)
+    return trials, trial_labels
+
+
+def get_session_features(generator, trials, subject_id, batch_size):
+    """Extracts features from trials within a single session 
+       using a trained generator model.
+
+    Parameters
+    ----------
+    generator : osl_foundation.models.EphysGPT
+        Trained generator model.
+    trials : np.ndarray
+        3D numpy array containing trials within a session.
+        Shape is (n_trials, n_samples, n_channels).
+    subject_id : int
+        Subject ID corresponding to the session.
+    batch_size : int
+        Batch size for feature extraction.
+
+    Returns
+    -------
+    features : np.ndarray
+        Array containing extracted features for all trials.
+        Shape is (n_trials, latent_sequence_length, n_channels, model_dim).
+    """
+    # Get model layers
+    shift_token_layer = generator.model.get_layer("shift_token")
+    input_embedding_layer = generator.model.get_layer("input_embedding")
+    decoder_layer = generator.model.get_layer("decoder")
+
+    # Create batches
+    n_trials = len(trials)
+    indices = np.array_split(
+        np.arange(n_trials), math.ceil(n_trials / batch_size)
+    )  # for batching
+
+    # Build subject labels
+    subject_labels = tf.constant(
+        subject_id, shape=trials.shape[:2], dtype=tf.int32
+    )
+
+    # Define helper function
+    @tf.function
+    def _extract_features(data, subject_labels):
+        x, _ = shift_token_layer(data, training=False)
+        x = input_embedding_layer([x, [subject_labels]], training=False)
+        x = decoder_layer(x, training=False)
+        return x
+    
+    # Extract features in batches
+    features = []
+    for idx in indices:
+        batch_trials = trials[idx]
+        batch_subject_labels = tf.gather(subject_labels, idx)
+        x = _extract_features(batch_trials, batch_subject_labels)
+        features.extend(list(x.numpy()))
+    return np.array(features)
+
+
+def get_features(generator, trials, subject_ids, batch_size):
+    """Extracts features from trials across multiple sessions
+       using a trained generator model.
+    
+    Parameters
+    ----------
+    generator : osl_foundation.models.EphysGPT
+        Trained generator model.
+    trials : list of np.ndarray
+        List of 3D numpy arrays containing trials for each session.
+        Each array has shape (n_trials, n_samples, n_channels).
+    subject_ids : list or np.ndarray
+        List or array of subject IDs corresponding to each session.
+    batch_size : int
+        Batch size for feature extraction.
+
+    Returns
+    -------
+    features : list of np.ndarray
+        List of arrays containing extracted features for each session.
+        Each array has shape (n_trials, latent_sequence_length, n_channels, model_dim).
+    """
+    # Validate inputs
+    if len(trials) != len(subject_ids):
+        raise ValueError(
+            "The length of trials must match the length of subject IDs."
+        )
+
+    # Extract features for each session
+    features = []
+    for i, trial in enumerate(tqdm(trials)):
+        features.append(
+            get_session_features(
+                generator, trial, subject_ids[i], batch_size
+            )
+        )
+    return features
+
+
+def load_features(file_path):
+    """Loads saved feature data from a specified path.
+    
+    Parameters
+    ----------
+    file_path : str
+        Path to the saved feature data file.
+    
+    Returns
+    -------
+    X : list of np.ndarray
+        List of feature arrays for each session.
+        Shape of each array is (n_trials, n_features).
+    y : list of np.ndarray
+        List of label arrays for each session.
+        Shape of each array is (n_trials,).
+    session_ids : list of str
+        List of session IDs corresponding to each session.
+    """
+    # Load saved feature data
+    data_dict = load(file_path)
+
+    # Extract and pre-process features and labels
+    X = list(map(
+        lambda x: np.mean(x[0], axis=1).reshape(x[0].shape[0], -1),
+        # average over time dimension and flatten channel and model dimensions
+        data_dict.values(),
+    ))
+    y = list(map(lambda x: x[1], data_dict.values()))
+    return X, y, list(data_dict.keys())
+
+
+def split_feature_data(data_tuples, test_session=None, test_subject=None):
+    """Splits feature data into training and test sets based on session ID.
+    
+    Parameters
+    ----------
+    data_tuples : tuple of lists
+        Tuple containing (X, y, session_ids) where:
+        - X is a list of feature arrays for each session.
+        - y is a list of label arrays for each session.
+        - session_ids is a list of session IDs corresponding to each session.
+    test_session : str, optional
+        Session ID to use for testing. If None, all sessions
+        are used for training.
+    test_subject : str, optional
+        Subject ID to use for testing. If None, all subjects
+        are used for training.
+
+    Returns
+    -------
+    train_Xs : list of np.ndarray
+        List of feature arrays for training sessions.
+    train_ys : list of np.ndarray
+        List of label arrays for training sessions.
+    test_Xs : list of np.ndarray
+        List of feature arrays for the test session.
+    test_ys : list of np.ndarray
+        List of label arrays for the test session.
+    """
+    # Initialize lists
+    train_Xs, train_ys = [], []
+    test_Xs, test_ys = [], []
+
+    # Split data into training and test sets
+    for x, y, session_id in zip(*data_tuples):
+        run_id = session_id.split("_")[1]
+        subject_id = session_id.split("_")[0]
+        if (run_id == test_session) or (subject_id == test_subject):
+            test_Xs.append(x)
+            test_ys.append(y)
+        else:
+            train_Xs.append(x)
+            train_ys.append(y)
+
+    # Standardize features    
+    train_Xs, test_Xs = ua.standardize_features(train_Xs, test_Xs)
+
+    return train_Xs, train_ys, test_Xs, test_ys

@@ -4,6 +4,8 @@ import os
 import numpy as np
 from numpy.linalg import norm
 from scipy.spatial.distance import pdist, squareform
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 from osl_dynamics.analysis import static
 from osl_dynamics.data import processing
 from osl_dynamics.inference import modes
@@ -334,3 +336,86 @@ def get_fingerprint_consistency_score(mat):
     gen_pdist_flat = gen_pdist[m, n]
     consistency = np.corrcoef(org_pdist_flat, gen_pdist_flat)[0, 1]
     return consistency
+
+
+def standardize_features(X_train, X_test):
+    """Standardizes features using training data statistics.
+
+    Parameters
+    ----------
+    X_train : list of np.ndarray
+        List of training feature arrays for each session.
+    X_test : list of np.ndarray
+        List of testing feature arrays for each session.
+
+    Returns
+    -------
+    X_train : list of np.ndarray
+        List of standardized training feature arrays.
+    X_test : list of np.ndarray
+        List of standardized testing feature arrays.
+    """
+    X_mean = np.mean(
+        np.concatenate(X_train), axis=0, keepdims=True
+    )
+    X_std = np.std(
+        np.concatenate(X_train), axis=0, keepdims=True
+    )
+    X_train = [(x - X_mean) / X_std for x in X_train]
+    X_test = [(x - X_mean) / X_std for x in X_test]
+    return X_train, X_test
+
+
+def compute_task_decoding_accuracy(
+    file_path,
+    test_session=None,
+    test_subject=None,
+):
+    """Computes task decoding accuracy using logistic regression classifier.
+    
+    Parameters
+    ----------
+    file_path : str
+        Path where the feature data file is saved.
+    test_session : str, optional
+        Session ID to be used as the test set. If None, all sessions
+        are used for training.
+    test_subject : str, optional
+        Subject ID to be used as the test set. If None, all subjects
+        are used for training.
+
+    Returns
+    -------
+    acc : np.ndarray
+        Array of decoding accuracies for each test session.
+    """
+    # Validate inputs
+    if test_session is None and test_subject is None:
+        raise ValueError("Either test_session or test_subject must be provided.")
+
+    # Load feature data
+    feature_data = ud.load_features(file_path)
+
+    # Split data into training and test sets
+    train_Xs, train_ys, test_Xs, test_ys = ud.split_feature_data(
+        feature_data, test_session=test_session, test_subject=test_subject
+    )
+
+    # Fit logistic regression classifier and predict test labels
+    clf = LogisticRegression(
+        penalty="l2",
+        solver="lbfgs",
+        max_iter=5000,
+        verbose=1,
+        n_jobs=16,
+        random_state=813,
+    )
+    clf.fit(np.concatenate(train_Xs), np.concatenate(train_ys))
+    y_preds = [clf.predict(x) for x in test_Xs]
+
+    # Compute accuracy for each test session
+    acc = np.array([
+        accuracy_score(y_true, y_pred)
+        for y_true, y_pred in zip(test_ys, y_preds)
+    ]) # shape: (n_test_sessions,)
+    return acc

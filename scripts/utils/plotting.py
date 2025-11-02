@@ -15,7 +15,7 @@ from osl_dynamics.utils.misc import override_dict_defaults
 from osl_dynamics.utils.parcellation import Parcellation
 from osl_dynamics.utils.plotting import create_figure
 from utils.array_ops import round_nonzero_decimal, round_up_half
-from utils.data import get_outliers
+from utils.data import get_outliers, get_generator_history
 
 
 def save(fig, filename, **kwargs):
@@ -1260,4 +1260,130 @@ def plot_fingerprint_box(
     plt.tight_layout()
     save(fig, filename, transparent=True)
 
+    return None
+
+
+def plot_generator_history(
+    model_dir,
+    save_dir,
+    fontsize=15,
+    legend=False,
+    transparent=True,
+):
+    """Plots training and validation loss and accuracy of learned generators.
+
+    Parameters
+    ----------
+    model_type : str
+        Type of generator model (e.g., "causal", "noncausal").
+    run_id : int
+        ID for the specific training run of the model.
+    model_dir : str
+        Directory where the trained model and its history are stored.
+    save_dir : str
+        Directory where the plot will be saved.
+    fontsize : int, optional
+        Font size for the plot labels and titles. Default is 15.
+    legend : bool, optional
+        Whether to display the legend on the plot. Default is False.
+    transparent : bool, optional
+        Whether to make the background of the plot transparent.
+        Default is True.
+    """
+    # Unpack metrics
+    train_loss, val_loss, train_top1_acc, val_top1_acc = (
+        get_generator_history(model_dir)
+    )
+
+    # Generate x-axis values
+    x_epochs = np.arange(len(train_loss)) + 1
+
+    # Create figure and axes
+    fig, ax1 = plt.subplots(nrows=1, ncols=1, figsize=(6, 3.8))
+    ax2 = ax1.twinx()
+
+    # Plot loss
+    ax1.plot(x_epochs, train_loss, "r", lw=1.5, label="Train Loss")
+    ax1.plot(x_epochs, val_loss, "b", lw=1.5, label="Val Loss")
+
+    # Plot top-1 accuracy
+    ax2.plot(x_epochs, train_top1_acc, "r--", lw=1.5, label="Train Acc.")
+    ax2.plot(x_epochs, val_top1_acc, "b--", lw=1.5, label="Val Acc.")
+
+    # Combine and add legends
+    if legend:
+        lines_1, labels_1 = ax1.get_legend_handles_labels()
+        lines_2, labels_2 = ax2.get_legend_handles_labels()
+        ax1.legend(
+            lines_1 + lines_2, labels_1 + labels_2,
+            loc="center right", fontsize=fontsize,
+        )
+
+    # Axis settings
+    ax1.set_xlim([0, len(x_epochs) + 1])
+    ax1.set_xlabel("Epoch", fontsize=fontsize)
+    ax1.set_ylabel("Cross-Entropy Loss", fontsize=fontsize)
+    ax2.set_ylabel("Top-1 Accuracy", fontsize=fontsize)
+    ax1.tick_params(axis="both", which="major", labelsize=fontsize)
+    ax2.tick_params(axis="both", which="major", labelsize=fontsize)
+
+    # Save figure
+    os.makedirs(save_dir, exist_ok=True)
+    plt.tight_layout()
+    save(
+        fig,
+        filename=f"{save_dir}/training_history.png",
+        transparent=transparent
+    )
+
+    return None
+
+
+def plot_decoding_bars(
+    data,
+    mode,
+    palette,
+    filename,
+    ylim=None,
+    fontsize=14
+):
+    # Reorder by accuracy
+    order = (
+        data.groupby("Model")["Accuracy"]
+        .mean()
+        .sort_values(ascending=False)
+    )
+
+    # Plot bar plots of model-specific decoding accuracy
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(6, 4))
+    sns.barplot(
+        data=data,
+        x="Model",
+        y="Accuracy",
+        hue="Model",
+        order=order.index,
+        hue_order=order.index,
+        gap=0.2,
+        capsize=0.2,
+        legend=False,
+        saturation=0.6,
+        palette=palette,
+        ax=ax,
+    )
+    ax.hlines(
+        y=0.25, xmin=ax.get_xlim()[0], xmax=ax.get_xlim()[1],
+        lw=2, ls="--", color="k",
+    )
+
+    # Axis settings
+    ax.spines[["bottom", "left"]].set_linewidth(1.5)
+    ax.spines[["top", "right"]].set_visible(False)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.set_xticklabels([])  # remove xtick labels
+    ax.tick_params(axis="x", which="both", length=0)  # remove xtick marks
+    ax.set_xlabel(mode, fontsize=fontsize)
+    ax.set_ylabel("Decoding Accuracy", fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize, width=1.5)
+    save(fig, filename, transparent=True)
     return None
