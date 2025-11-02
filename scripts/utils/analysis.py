@@ -299,7 +299,7 @@ def get_fingerprint_accuracy(mat, top_k=1):
     n_subjects = mat.shape[0] // 2
 
     # Only keep the top right quadrant
-    mat = mat[:n_subjects, n_subjects:]
+    mat = mat[n_subjects:, :n_subjects]
 
     # Calculate accuracy
     count = 0
