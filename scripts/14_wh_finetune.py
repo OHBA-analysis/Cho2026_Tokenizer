@@ -31,8 +31,8 @@ if __name__ == "__main__":
           f"| Fine Tuning Mode: {ft_mode}")
 
     # Validate inputs
-    if ft_mode not in ["fine_tune", "zero_shot"]:
-        raise ValueError("Fine tuning mode must be either 'fine_tune' or 'zero_shot'.")
+    if ft_mode not in ["fine_tune", "zero_shot_subject_emb"]:
+        raise ValueError("Fine tuning mode must be either 'fine_tune' or 'zero_shot_subject_emb'.")
 
     # Set random seed for Python random, NumPy, and TensorFlow
     BASE_SEED = 813

@@ -29,7 +29,13 @@ if __name__ == "__main__":
     tk_run_ids = [25, 27, 0, 0, 0, 0, 0]
     gt_run_id = 1  # pre-trained model run ID
     dc_run_ids = np.arange(n_subjects)
-    ft_mode = "visualize"  # "fine_tune", "zero_shot", or "visualize"
+    ft_mode = "visualize"
+
+    # Validate inputs
+    if ft_mode not in ["zero_shot_subject_emb", "fine_tune", "visualize"]:
+        raise ValueError(
+            "Fine tuning mode must be either 'zero_shot_subject_emb', 'fine_tune', or 'visualize'."
+        )
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
@@ -37,7 +43,7 @@ if __name__ == "__main__":
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data_fif_wh")
 
     # ---------- Feature Extraction & Task Decoding ---------- #
-    if ft_mode in ["zero_shot", "fine_tune"]:
+    if ft_mode in ["zero_shot_subject_emb", "fine_tune"]:
         # Create directories to save features and figures
         save_dir = f"{BASE_DIR}/data/wh_decoding/{ft_mode}"
         fig_dir = f"{BASE_DIR}/plots/decoding_models/{ft_mode}"
@@ -124,11 +130,11 @@ if __name__ == "__main__":
             if not os.path.exists(decoding_ws_save_path) or not os.path.exists(decoding_ns_save_path):
                 print(f"Computing decoding accuracy for {name} model ...")
                 
-                # decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
-                #     feature_save_path, test_session="run06"
-                # )
-                # print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
-                # print(f"\tShape: {decoding_accuracy_ws.shape}")
+                decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
+                    feature_save_path, test_session="run06"
+                )
+                print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
+                print(f"\tShape: {decoding_accuracy_ws.shape}")
 
                 decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
                     feature_save_path, test_subject="sub19"
@@ -137,7 +143,7 @@ if __name__ == "__main__":
                 print(f"\tShape: {decoding_accuracy_ns.shape}")
 
                 # Save decoding accuracy
-                # ud.save(decoding_accuracy_ws, decoding_ws_save_path)
+                ud.save(decoding_accuracy_ws, decoding_ws_save_path)
                 ud.save(decoding_accuracy_ns, decoding_ns_save_path)
 
             else:
@@ -170,10 +176,10 @@ if __name__ == "__main__":
             ws_path = f"{save_dir}/{{0}}/decoding_accuracies_ws_{{1}}.pkl"
             ns_path = f"{save_dir}/{{0}}/decoding_accuracies_ns_{{1}}.pkl"
 
-            acc_zs_ws[name] = ud.load(ws_path.format("zero_shot", name))
+            acc_zs_ws[name] = ud.load(ws_path.format("zero_shot_subject_emb", name))
             acc_ft_ws[name] = ud.load(ws_path.format("fine_tune", name))
-            
-            acc_zs_ns[name] = ud.load(ns_path.format("zero_shot", name))
+
+            acc_zs_ns[name] = ud.load(ns_path.format("zero_shot_subject_emb", name))
             acc_ft_ns[name] = ud.load(ns_path.format("fine_tune", name))
 
         # Build dataframe
