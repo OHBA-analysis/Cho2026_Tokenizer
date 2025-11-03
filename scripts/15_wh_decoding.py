@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from glob import glob
 from osl_dynamics.inference import tf_ops
-from osl_foundation import load_model
+from osl_foundation import create_model, load_model
 from utils import analysis as ua
 from utils import data as ud
 from utils import plotting as up
@@ -32,9 +32,12 @@ if __name__ == "__main__":
     ft_mode = "visualize"
 
     # Validate inputs
-    if ft_mode not in ["zero_shot_subject_emb", "fine_tune", "visualize"]:
+    if ft_mode not in [
+        "zero_shot", "zero_shot_subject_emb", "fine_tune", "visualize"
+    ]:
         raise ValueError(
-            "Fine tuning mode must be either 'zero_shot_subject_emb', 'fine_tune', or 'visualize'."
+            "Fine tuning mode must be either 'zero_shot', 'zero_shot_subject_emb', " + 
+            "'fine_tune', or 'visualize'."
         )
 
     # ---------- Directories ---------- #
@@ -43,7 +46,7 @@ if __name__ == "__main__":
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data_fif_wh")
 
     # ---------- Feature Extraction & Task Decoding ---------- #
-    if ft_mode in ["zero_shot_subject_emb", "fine_tune"]:
+    if ft_mode in ["zero_shot", "zero_shot_subject_emb", "fine_tune"]:
         # Create directories to save features and figures
         save_dir = f"{BASE_DIR}/data/wh_decoding/{ft_mode}"
         fig_dir = f"{BASE_DIR}/plots/decoding_models/{ft_mode}"
@@ -52,12 +55,13 @@ if __name__ == "__main__":
 
         # Plot fine-tuning history
         # (i.e., training/validation loss and top 1 accuracy curves)
-        for name in model_names:
-            for id in dc_run_ids:
-                up.plot_generator_history(
-                    model_dir=f"{MODEL_DIR}/{name}/{gt_run_id}/{id}",
-                    save_dir=f"{fig_dir}/{name}/{gt_run_id}/{id}",
-                )
+        if ft_mode != "zero_shot":
+            for name in model_names:
+                for id in dc_run_ids:
+                    up.plot_generator_history(
+                        model_dir=f"{MODEL_DIR}/{name}/{gt_run_id}/{id}",
+                        save_dir=f"{fig_dir}/{name}/{gt_run_id}/{id}",
+                    )
 
         # Get subject IDs
         subject_ids = [f"sub{i:02d}" for i in range(1, n_subjects + 1)]
@@ -82,10 +86,16 @@ if __name__ == "__main__":
                     ))
                     n_total_sessions += len(data_files)
 
-                    # Load fine-tuned model
-                    decoding_model = load_model(
-                        f"{MODEL_DIR}/{name}/{gt_run_id}/{s}", checkpoint="latest"
-                    )
+                    # Set model path
+                    model_path = f"{MODEL_DIR}/{name}/{gt_run_id}"
+                    if ft_mode in ["zero_shot_subject_emb", "fine_tune"]:
+                        model_path = os.path.join(model_path, f"{s}")
+                    
+                    # Load decoding model
+                    if ft_mode == "zero_shot":
+                        decoding_model = create_model(f"{model_path}/config.yml")
+                    else:
+                        decoding_model = load_model(model_path, checkpoint="latest")
                     sequence_length = decoding_model.config.model_config.sequence_length
                     print(f"\tSequence length: {sequence_length}")
 
@@ -96,11 +106,11 @@ if __name__ == "__main__":
                     subject_features = ud.get_features(
                         decoding_model,
                         trials,
-                        subject_ids=[0] * n_sessions,
+                        subject_ids=([None] if ft_mode == "zero_shot" else [0]) * n_sessions,
                         batch_size=64,
                     )
-                    # NOTE: We use subject_id=0, because we have different model instances 
-                    # for each subject and hence one subject embedding per decoding model.
+                    # NOTE: We always use subject_id=0 when appropriate, because we have different model
+                    #       instances for each subject and hence one subject embedding per decoding model.
                     features.extend(subject_features)
                     labels.extend(subject_labels)
 
@@ -169,60 +179,48 @@ if __name__ == "__main__":
         }
 
         # Load decoding accuracies
-        acc_zs_ws, acc_ft_ws = {}, {}  # for within subject decoding
-        acc_zs_ns, acc_ft_ns = {}, {}  # for new subject decoding
+        acc_zs_ws, acc_zs_se_ws, acc_ft_ws = {}, {}, {}  # for within subject decoding
+        acc_zs_ns, acc_zs_se_ns, acc_ft_ns = {}, {}, {}  # for new subject decoding
+        
         for name in model_names:
             save_dir = f"{BASE_DIR}/data/wh_decoding"
             ws_path = f"{save_dir}/{{0}}/decoding_accuracies_ws_{{1}}.pkl"
             ns_path = f"{save_dir}/{{0}}/decoding_accuracies_ns_{{1}}.pkl"
 
-            acc_zs_ws[name] = ud.load(ws_path.format("zero_shot_subject_emb", name))
+            acc_zs_ws[name] = ud.load(ws_path.format("zero_shot", name))
+            acc_zs_se_ws[name] = ud.load(ws_path.format("zero_shot_subject_emb", name))
             acc_ft_ws[name] = ud.load(ws_path.format("fine_tune", name))
 
-            acc_zs_ns[name] = ud.load(ns_path.format("zero_shot_subject_emb", name))
+            acc_zs_ns[name] = ud.load(ns_path.format("zero_shot", name))
+            acc_zs_se_ns[name] = ud.load(ns_path.format("zero_shot_subject_emb", name))
             acc_ft_ns[name] = ud.load(ns_path.format("fine_tune", name))
 
         # Build dataframe
         dict_to_df = lambda d: pd.DataFrame.from_dict(d).melt(var_name="Model", value_name="Accuracy")
 
         df_acc_zs_ws = dict_to_df(acc_zs_ws)
+        df_acc_zs_se_ws = dict_to_df(acc_zs_se_ws)
         df_acc_ft_ws = dict_to_df(acc_ft_ws)
 
         df_acc_zs_ns = dict_to_df(acc_zs_ns)
+        df_acc_zs_se_ns = dict_to_df(acc_zs_se_ns)
         df_acc_ft_ns = dict_to_df(acc_ft_ns)
 
         # Visualize bar plots for decoding accuracies
-        up.plot_decoding_bars(
-            df_acc_zs_ws,
-            mode="Zero-Shot",
-            palette=color_palette_1,
-            filename=f"acc_zs_ws.png",
-            ylim=[0.0, 0.8],
-        )
-
-        up.plot_decoding_bars(
-            df_acc_ft_ws,
-            mode="Fine-Tuned",
-            palette=color_palette_1,
-            filename=f"acc_ft_ws.png",
-            ylim=[0.0, 0.8],
-        )
-
-        up.plot_decoding_bars(
-            df_acc_zs_ns,
-            mode="Zero-Shot",
-            palette=color_palette_1,
-            filename=f"acc_zs_ns.png",
-            ylim=[0.0, 0.8],
-        )
-
-        up.plot_decoding_bars(
-            df_acc_ft_ns,
-            mode="Fine-Tuned",
-            palette=color_palette_1,
-            filename=f"acc_ft_ns.png",
-            ylim=[0.0, 0.8],
-        )
+        dfs = [df_acc_zs_ws, df_acc_zs_se_ws, df_acc_ft_ws,
+               df_acc_zs_ns, df_acc_zs_se_ns, df_acc_ft_ns]
+        modes = ["Zero-Shot", "Zero-Shot (w/ Subject Emb.)", "Fine-Tuned"] * 2
+        filenames = ["acc_zs_ws.png", "acc_zs_se_ws.png", "acc_ft_ws.png",
+                     "acc_zs_ns.png", "acc_zs_se_ns.png", "acc_ft_ns.png"]
+        
+        for df, mode, filename in zip(dfs, modes, filenames):            
+            up.plot_decoding_bars(
+                df,
+                mode=mode,
+                palette=color_palette_1,
+                filename=filename,
+                ylim=[0.0, 0.8],
+            )
 
     # ---------- Statistical Testing ---------- #
 

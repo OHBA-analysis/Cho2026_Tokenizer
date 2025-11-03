@@ -1344,9 +1344,41 @@ def plot_decoding_bars(
     mode,
     palette,
     filename,
+    model_names=None,
     ylim=None,
     fontsize=14
 ):
+    """Plots bar plots for model-specific decoding accuracy.
+    
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame containing decoding accuracy data with columns
+        "Model" and "Accuracy".
+    mode : str
+        Mode of decoding (e.g., "Zero-Shot" or "Fine-Tuned").
+        Will be used as x-axis label.
+    palette : dict
+        Color palette for different models.
+        Keys are model names, and values are color codes.
+    filename : str
+        Path where the plot will be saved.
+    model_names : list of str, optional
+        List of model names to be plotted. If None, all models in the data
+        will be included. Default is None.
+    ylim : list of float, optional
+        Y-axis limits for the plot. Default is None, which lets matplotlib
+        choose the limits automatically.
+    fontsize : int, optional
+        Font size for the plot. Default is 14.
+    """
+    # Filter data to include only specified models
+    if model_names is not None:
+        data = data[data["Model"].isin(model_names)].copy()
+        palette = {
+            model: palette[model] for model in model_names
+        }
+
     # Reorder by accuracy
     order = (
         data.groupby("Model")["Accuracy"]
@@ -1386,4 +1418,5 @@ def plot_decoding_bars(
     ax.set_ylabel("Decoding Accuracy", fontsize=fontsize)
     ax.tick_params(labelsize=fontsize, width=1.5)
     save(fig, filename, transparent=True)
+    
     return None

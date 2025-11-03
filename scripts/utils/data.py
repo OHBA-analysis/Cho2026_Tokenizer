@@ -340,8 +340,9 @@ def get_session_features(generator, trials, subject_id, batch_size):
     trials : np.ndarray
         3D numpy array containing trials within a session.
         Shape is (n_trials, n_samples, n_channels).
-    subject_id : int
+    subject_id : int or None
         Subject ID corresponding to the session.
+        If None, no subject embedding is used.
     batch_size : int
         Batch size for feature extraction.
 
@@ -363,15 +364,18 @@ def get_session_features(generator, trials, subject_id, batch_size):
     )  # for batching
 
     # Build subject labels
-    subject_labels = tf.constant(
-        subject_id, shape=trials.shape[:2], dtype=tf.int32
-    )
+    if subject_id is None:
+        subject_labels = None
+    else:
+        subject_labels = tf.constant(
+            subject_id, shape=trials.shape[:2], dtype=tf.int32
+        )
 
     # Define helper function
     @tf.function
     def _extract_features(data, subject_labels):
         x, _ = shift_token_layer(data, training=False)
-        x = input_embedding_layer([x, [subject_labels]], training=False)
+        x = input_embedding_layer([x, subject_labels], training=False)
         x = decoder_layer(x, training=False)
         return x
     
@@ -379,7 +383,10 @@ def get_session_features(generator, trials, subject_id, batch_size):
     features = []
     for idx in indices:
         batch_trials = trials[idx]
-        batch_subject_labels = tf.gather(subject_labels, idx)
+        if subject_labels is None:
+            batch_subject_labels = []
+        else:
+            batch_subject_labels = [tf.gather(subject_labels, idx)]
         x = _extract_features(batch_trials, batch_subject_labels)
         features.extend(list(x.numpy()))
     return np.array(features)
