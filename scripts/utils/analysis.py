@@ -370,6 +370,7 @@ def compute_task_decoding_accuracy(
     file_path,
     test_session=None,
     test_subject=None,
+    baseline=False,
 ):
     """Computes task decoding accuracy using logistic regression classifier.
     
@@ -383,6 +384,9 @@ def compute_task_decoding_accuracy(
     test_subject : str, optional
         Subject ID to be used as the test set. If None, all subjects
         are used for training.
+    baseline : bool, optional
+        If True, indicates that the baseline features are used.
+        Default is False.
 
     Returns
     -------
@@ -394,7 +398,7 @@ def compute_task_decoding_accuracy(
         raise ValueError("Either test_session or test_subject must be provided.")
 
     # Load feature data
-    feature_data = ud.load_features(file_path)
+    feature_data = ud.load_features(file_path, baseline=baseline)
 
     # Split data into training and test sets
     train_Xs, train_ys, test_Xs, test_ys = ud.split_feature_data(

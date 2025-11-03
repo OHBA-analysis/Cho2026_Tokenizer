@@ -431,13 +431,16 @@ def get_features(generator, trials, subject_ids, batch_size):
     return features
 
 
-def load_features(file_path):
+def load_features(file_path, baseline=False):
     """Loads saved feature data from a specified path.
     
     Parameters
     ----------
     file_path : str
         Path to the saved feature data file.
+    baseline : bool, optional
+        If True, indicates that the baseline features are used.
+        Default is False.
     
     Returns
     -------
@@ -454,11 +457,18 @@ def load_features(file_path):
     data_dict = load(file_path)
 
     # Extract and pre-process features and labels
-    X = list(map(
-        lambda x: np.mean(x[0], axis=1).reshape(x[0].shape[0], -1),
-        # average over time dimension and flatten channel and model dimensions
-        data_dict.values(),
-    ))
+    if baseline:
+        X = list(map(
+            lambda x: x[0].reshape(x[0].shape[0], -1),
+            # flatten channel and time dimensions
+            data_dict.values(),
+        ))
+    else:
+        X = list(map(
+            lambda x: np.mean(x[0], axis=1).reshape(x[0].shape[0], -1),
+            # average over time dimension and flatten channel and model dimensions
+            data_dict.values(),
+        ))
     y = list(map(lambda x: x[1], data_dict.values()))
     return X, y, list(data_dict.keys())
 

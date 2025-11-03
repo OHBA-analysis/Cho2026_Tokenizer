@@ -1410,6 +1410,7 @@ def plot_decoding_bars(
     # Axis settings
     ax.spines[["bottom", "left"]].set_linewidth(1.5)
     ax.spines[["top", "right"]].set_visible(False)
+    ax.set_xlim([-1.0, 7.0])
     if ylim is not None:
         ax.set_ylim(ylim)
     ax.set_xticklabels([])  # remove xtick labels
@@ -1418,5 +1419,5 @@ def plot_decoding_bars(
     ax.set_ylabel("Decoding Accuracy", fontsize=fontsize)
     ax.tick_params(labelsize=fontsize, width=1.5)
     save(fig, filename, transparent=True)
-    
+
     return None

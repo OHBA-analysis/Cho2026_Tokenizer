@@ -33,20 +33,21 @@ if __name__ == "__main__":
 
     # Validate inputs
     if ft_mode not in [
-        "zero_shot", "zero_shot_subject_emb", "fine_tune", "visualize"
+        "baseline", "zero_shot", "zero_shot_subject_emb", "fine_tune", "visualize"
     ]:
         raise ValueError(
-            "Fine tuning mode must be either 'zero_shot', 'zero_shot_subject_emb', " + 
-            "'fine_tune', or 'visualize'."
+            "Fine tuning mode must be either 'baseline', 'zero_shot', " +
+            "'zero_shot_subject_emb', 'fine_tune', or 'visualize'."
         )
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    PROJ_DIR = "/well/woolrich/projects/wakeman_henson/summer23/src"
     MODEL_DIR = os.path.join(BASE_DIR, f"models/decoding_models/{ft_mode}")
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data_fif_wh")
 
     # ---------- Feature Extraction & Task Decoding ---------- #
-    if ft_mode in ["zero_shot", "zero_shot_subject_emb", "fine_tune"]:
+    if ft_mode != "visualize":
         # Create directories to save features and figures
         save_dir = f"{BASE_DIR}/data/wh_decoding/{ft_mode}"
         fig_dir = f"{BASE_DIR}/plots/decoding_models/{ft_mode}"
@@ -55,7 +56,7 @@ if __name__ == "__main__":
 
         # Plot fine-tuning history
         # (i.e., training/validation loss and top 1 accuracy curves)
-        if ft_mode != "zero_shot":
+        if ft_mode not in ["baseline", "zero_shot"]:
             for name in model_names:
                 for id in dc_run_ids:
                     up.plot_generator_history(
@@ -66,53 +67,28 @@ if __name__ == "__main__":
         # Get subject IDs
         subject_ids = [f"sub{i:02d}" for i in range(1, n_subjects + 1)]
 
-        for i, name in enumerate(model_names):
+        # Extract features
+        if ft_mode == "baseline":
             # Define save paths
-            feature_save_path = f"{save_dir}/decoding_features_{name}.pkl"
-            decoding_ws_save_path = f"{save_dir}/decoding_accuracies_ws_{name}.pkl"
-            decoding_ns_save_path = f"{save_dir}/decoding_accuracies_ns_{name}.pkl"
+            feature_save_path = f"{save_dir}/decoding_features.pkl"
+            decoding_ws_save_path = f"{save_dir}/decoding_accuracies_ws.pkl"
+            decoding_ns_save_path = f"{save_dir}/decoding_accuracies_ns.pkl"
 
-            # Extract features for each model
+            # Extract features for baseline model
             if not os.path.exists(feature_save_path):
-                print(f"Extracting features using {name} model ...")
-                
-                features, labels = [], []
-                n_total_sessions = 0
+                print("Extracting features using baseline model ...")
 
-                for s, subject_id in enumerate(subject_ids):
-                    # Get data files
-                    data_files = sorted(glob(
-                        f"{DATA_DIR}/{name}/{tk_run_ids[i]}/{subject_id}/*.fif"
-                    ))
-                    n_total_sessions += len(data_files)
+                # Get data files
+                data_files = sorted(glob(
+                    f"{PROJ_DIR}/sub*_run*/sflip_parc-raw.fif"
+                ))
+                n_total_sessions = len(data_files)
 
-                    # Set model path
-                    model_path = f"{MODEL_DIR}/{name}/{gt_run_id}"
-                    if ft_mode in ["zero_shot_subject_emb", "fine_tune"]:
-                        model_path = os.path.join(model_path, f"{s}")
-                    
-                    # Load decoding model
-                    if ft_mode == "zero_shot":
-                        decoding_model = create_model(f"{model_path}/config.yml")
-                    else:
-                        decoding_model = load_model(model_path, checkpoint="latest")
-                    sequence_length = decoding_model.config.model_config.sequence_length
-                    print(f"\tSequence length: {sequence_length}")
-
-                    # Extract trials and task labels
-                    trials, subject_labels = ud.get_event_trials_and_labels(data_files, sequence_length)
-
-                    # Extract features for each session
-                    subject_features = ud.get_features(
-                        decoding_model,
-                        trials,
-                        subject_ids=([None] if ft_mode == "zero_shot" else [0]) * n_sessions,
-                        batch_size=64,
-                    )
-                    # NOTE: We always use subject_id=0 when appropriate, because we have different model
-                    #       instances for each subject and hence one subject embedding per decoding model.
-                    features.extend(subject_features)
-                    labels.extend(subject_labels)
+                # Extract trials and task labels
+                features, labels = ud.get_event_trials_and_labels(
+                    data_files, sequence_length=80
+                )
+                # NOTE: We use parcel MEG time courses as our features for the baseline model.
 
                 # Verify total number of sessions
                 if n_total_sessions != n_subjects * n_sessions:
@@ -121,33 +97,29 @@ if __name__ == "__main__":
                     )
                 print(f"\tTotal number of sessions: {n_total_sessions}")
 
-                # Save features and labels
-                data_files = sorted(glob(
-                    f"{DATA_DIR}/{name}/{tk_run_ids[i]}/*/*.fif"
-                ))
-                
+                # Save features and labels              
                 data_dict = {}
                 for file, feature, label in zip(data_files, features, labels):
-                    session_id = file.split("/")[-1]
+                    session_id = file.split("/")[-2]
                     data_dict[session_id] = (feature, label)
 
                 ud.save(data_dict, feature_save_path)
-
+            
             else:
-                print(f"\tFeatures for {name} model already exist. Skipping extraction.")
+                print(f"\tFeatures for the baseline model already exist. Skipping extraction.")
 
             # Compute session-wise decoding accuracy for each model
             if not os.path.exists(decoding_ws_save_path) or not os.path.exists(decoding_ns_save_path):
-                print(f"Computing decoding accuracy for {name} model ...")
+                print(f"Computing decoding accuracy for baseline model ...")
                 
                 decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
-                    feature_save_path, test_session="run06"
+                    feature_save_path, test_session="run06", baseline=True
                 )
                 print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
                 print(f"\tShape: {decoding_accuracy_ws.shape}")
 
                 decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
-                    feature_save_path, test_subject="sub19"
+                    feature_save_path, test_subject="sub19", baseline=True
                 )
                 print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")
                 print(f"\tShape: {decoding_accuracy_ns.shape}")
@@ -157,7 +129,101 @@ if __name__ == "__main__":
                 ud.save(decoding_accuracy_ns, decoding_ns_save_path)
 
             else:
-                print(f"\tDecoding accuracies for {name} model already exist. Loading accuracies.")
+                print(f"\tDecoding accuracies for the baseline model already exist. Loading accuracies.")
+
+        else:
+            for i, name in enumerate(model_names):
+                # Define save paths
+                feature_save_path = f"{save_dir}/decoding_features_{name}.pkl"
+                decoding_ws_save_path = f"{save_dir}/decoding_accuracies_ws_{name}.pkl"
+                decoding_ns_save_path = f"{save_dir}/decoding_accuracies_ns_{name}.pkl"
+
+                # Extract features for each model
+                if not os.path.exists(feature_save_path):
+                    print(f"Extracting features using {name} model ...")
+                    
+                    features, labels = [], []
+                    n_total_sessions = 0
+
+                    for s, subject_id in enumerate(subject_ids):
+                        # Get data files
+                        data_files = sorted(glob(
+                            f"{DATA_DIR}/{name}/{tk_run_ids[i]}/{subject_id}/*.fif"
+                        ))
+                        n_total_sessions += len(data_files)
+
+                        # Set model path
+                        model_path = f"{MODEL_DIR}/{name}/{gt_run_id}"
+                        if ft_mode in ["zero_shot_subject_emb", "fine_tune"]:
+                            model_path = os.path.join(model_path, f"{s}")
+                        
+                        # Load decoding model
+                        if ft_mode == "zero_shot":
+                            decoding_model = create_model(f"{model_path}/config.yml")
+                        else:
+                            decoding_model = load_model(model_path, checkpoint="latest")
+                        sequence_length = decoding_model.config.model_config.sequence_length
+                        print(f"\tSequence length: {sequence_length}")
+
+                        # Extract trials and task labels
+                        trials, subject_labels = ud.get_event_trials_and_labels(data_files, sequence_length)
+
+                        # Extract features for each session
+                        subject_features = ud.get_features(
+                            decoding_model,
+                            trials,
+                            subject_ids=([None] if ft_mode == "zero_shot" else [0]) * n_sessions,
+                            batch_size=64,
+                        )
+                        # NOTE: We always use subject_id=0 when appropriate, because we have different model
+                        #       instances for each subject and hence one subject embedding per decoding model.
+                        features.extend(subject_features)
+                        labels.extend(subject_labels)
+
+                    # Verify total number of sessions
+                    if n_total_sessions != n_subjects * n_sessions:
+                        raise ValueError(
+                            f"Expected {n_subjects * n_sessions} sessions, but found {n_total_sessions} sessions."
+                        )
+                    print(f"\tTotal number of sessions: {n_total_sessions}")
+
+                    # Save features and labels
+                    data_files = sorted(glob(
+                        f"{DATA_DIR}/{name}/{tk_run_ids[i]}/*/*.fif"
+                    ))
+                    
+                    data_dict = {}
+                    for file, feature, label in zip(data_files, features, labels):
+                        session_id = file.split("/")[-1]
+                        data_dict[session_id] = (feature, label)
+
+                    ud.save(data_dict, feature_save_path)
+
+                else:
+                    print(f"\tFeatures for {name} model already exist. Skipping extraction.")
+
+                # Compute session-wise decoding accuracy for each model
+                if not os.path.exists(decoding_ws_save_path) or not os.path.exists(decoding_ns_save_path):
+                    print(f"Computing decoding accuracy for {name} model ...")
+                    
+                    decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
+                        feature_save_path, test_session="run06"
+                    )
+                    print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
+                    print(f"\tShape: {decoding_accuracy_ws.shape}")
+
+                    decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
+                        feature_save_path, test_subject="sub19"
+                    )
+                    print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")
+                    print(f"\tShape: {decoding_accuracy_ns.shape}")
+
+                    # Save decoding accuracy
+                    ud.save(decoding_accuracy_ws, decoding_ws_save_path)
+                    ud.save(decoding_accuracy_ns, decoding_ns_save_path)
+
+                else:
+                    print(f"\tDecoding accuracies for {name} model already exist. Loading accuracies.")
 
     # ---------- Visualization ---------- #
     if ft_mode == "visualize":
@@ -179,11 +245,15 @@ if __name__ == "__main__":
         }
 
         # Load decoding accuracies
-        acc_zs_ws, acc_zs_se_ws, acc_ft_ws = {}, {}, {}  # for within subject decoding
-        acc_zs_ns, acc_zs_se_ns, acc_ft_ns = {}, {}, {}  # for new subject decoding
-        
+        acc_base_ws, acc_zs_ws, acc_zs_se_ws, acc_ft_ws = {}, {}, {}, {}  # for within subject decoding
+        acc_base_ns, acc_zs_ns, acc_zs_se_ns, acc_ft_ns = {}, {}, {}, {}  # for new subject decoding
+
+        save_dir = f"{BASE_DIR}/data/wh_decoding"
+
+        acc_base_ws["baseline"] = ud.load(f"{save_dir}/baseline/decoding_accuracies_ws.pkl")
+        acc_base_ns["baseline"] = ud.load(f"{save_dir}/baseline/decoding_accuracies_ns.pkl")
+
         for name in model_names:
-            save_dir = f"{BASE_DIR}/data/wh_decoding"
             ws_path = f"{save_dir}/{{0}}/decoding_accuracies_ws_{{1}}.pkl"
             ns_path = f"{save_dir}/{{0}}/decoding_accuracies_ns_{{1}}.pkl"
 
@@ -198,26 +268,44 @@ if __name__ == "__main__":
         # Build dataframe
         dict_to_df = lambda d: pd.DataFrame.from_dict(d).melt(var_name="Model", value_name="Accuracy")
 
+        df_acc_base_ws = dict_to_df(acc_base_ws)
         df_acc_zs_ws = dict_to_df(acc_zs_ws)
         df_acc_zs_se_ws = dict_to_df(acc_zs_se_ws)
         df_acc_ft_ws = dict_to_df(acc_ft_ws)
 
+        df_acc_base_ns = dict_to_df(acc_base_ns)
         df_acc_zs_ns = dict_to_df(acc_zs_ns)
         df_acc_zs_se_ns = dict_to_df(acc_zs_se_ns)
         df_acc_ft_ns = dict_to_df(acc_ft_ns)
 
         # Visualize bar plots for decoding accuracies
+        dfs = [df_acc_base_ws, df_acc_base_ns]
+        filenames = ["acc_base_ws.png", "acc_base_ns.png"]
+
+        for df, filename in zip(dfs, filenames):
+            up.plot_decoding_bars(
+                df,
+                mode="Baseline",
+                palette={"baseline": "#000000"},
+                filename=filename,
+                ylim=[0.0, 0.8],
+            )
+
         dfs = [df_acc_zs_ws, df_acc_zs_se_ws, df_acc_ft_ws,
                df_acc_zs_ns, df_acc_zs_se_ns, df_acc_ft_ns]
         modes = ["Zero-Shot", "Zero-Shot (w/ Subject Emb.)", "Fine-Tuned"] * 2
         filenames = ["acc_zs_ws.png", "acc_zs_se_ws.png", "acc_ft_ws.png",
                      "acc_zs_ns.png", "acc_zs_se_ns.png", "acc_ft_ns.png"]
         
-        for df, mode, filename in zip(dfs, modes, filenames):            
+        for df, mode, filename in zip(dfs, modes, filenames):
             up.plot_decoding_bars(
                 df,
                 mode=mode,
                 palette=color_palette_1,
+                model_names=(
+                    ["causal", "noncausal", "mu_transform_small"]
+                    if mode == "Zero-Shot" else None
+                ),
                 filename=filename,
                 ylim=[0.0, 0.8],
             )
