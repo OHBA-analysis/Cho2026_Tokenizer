@@ -266,10 +266,10 @@ def find_task_events(raw):
             256, 261, 262, 263, 269,
             270, 271, 273, 274, 275,
             4096, 4101, 4102, 4103, 4109,
-            4110, 4111, 4114, 4114, 4115,
-            4352, 4357, 4359, 4365, 4369,
+            4110, 4111, 4114, 4115, 4352,
+            4357, 4359, 4365, 4369,
         ],
-    }  # NEED EDIT: Why do we need two "4114"s here?
+    }
 
     # Find events and remap event codes
     events = mne.find_events(raw, min_duration=0.005, verbose=False)
