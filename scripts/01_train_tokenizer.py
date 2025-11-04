@@ -57,7 +57,7 @@ if __name__ == "__main__":
     # Set model hyperparameters
     if model_type in ["causal", "noncausal"]:
 
-        n_epochs = 10
+        n_epochs = 40
 
         if model_type == "noncausal":
             token_kernel_padding = "same"
