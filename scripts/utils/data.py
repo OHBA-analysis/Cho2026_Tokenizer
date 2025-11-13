@@ -431,13 +431,14 @@ def get_features(generator, trials, subject_ids, batch_size):
     return features
 
 
-def load_features(file_path, baseline=False):
+def load_features(data_dict, baseline=False):
     """Loads saved feature data from a specified path.
     
     Parameters
     ----------
-    file_path : str
-        Path to the saved feature data file.
+    data_dict : dict
+        Dictionary containing the feature data. Keys are session IDs and
+        values are a tuple of task features and labels.
     baseline : bool, optional
         If True, indicates that the baseline features are used.
         Default is False.
@@ -453,9 +454,6 @@ def load_features(file_path, baseline=False):
     session_ids : list of str
         List of session IDs corresponding to each session.
     """
-    # Load saved feature data
-    data_dict = load(file_path)
-
     # Extract and pre-process features and labels
     if baseline:
         X = list(map(
@@ -473,7 +471,12 @@ def load_features(file_path, baseline=False):
     return X, y, list(data_dict.keys())
 
 
-def split_feature_data(data_tuples, test_session=None, test_subject=None):
+def split_feature_data(
+    data_tuples,
+    test_session=None,
+    test_subject=None,
+    standardize=False,
+):
     """Splits feature data into training and test sets based on session ID.
     
     Parameters
@@ -489,6 +492,9 @@ def split_feature_data(data_tuples, test_session=None, test_subject=None):
     test_subject : str, optional
         Subject ID to use for testing. If None, all subjects
         are used for training.
+    standardize : bool, optional
+        If True, standardizes features using training set statistics.
+        Default is False.
 
     Returns
     -------
@@ -516,7 +522,8 @@ def split_feature_data(data_tuples, test_session=None, test_subject=None):
             train_Xs.append(x)
             train_ys.append(y)
 
-    # Standardize features    
-    train_Xs, test_Xs = ua.standardize_features(train_Xs, test_Xs)
+    # Standardize features
+    if standardize:
+        train_Xs, test_Xs = ua.standardize_features(train_Xs, test_Xs)
 
     return train_Xs, train_ys, test_Xs, test_ys

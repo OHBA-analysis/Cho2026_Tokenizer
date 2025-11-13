@@ -367,7 +367,7 @@ def standardize_features(X_train, X_test):
 
 
 def compute_task_decoding_accuracy(
-    file_path,
+    data_dict,
     test_session=None,
     test_subject=None,
     baseline=False,
@@ -376,8 +376,9 @@ def compute_task_decoding_accuracy(
     
     Parameters
     ----------
-    file_path : str
-        Path where the feature data file is saved.
+    data_dict : dict
+        Dictionary containing the feature data. Keys are session IDs and
+        values are a tuple of task features and labels.
     test_session : str, optional
         Session ID to be used as the test set. If None, all sessions
         are used for training.
@@ -398,11 +399,14 @@ def compute_task_decoding_accuracy(
         raise ValueError("Either test_session or test_subject must be provided.")
 
     # Load feature data
-    feature_data = ud.load_features(file_path, baseline=baseline)
+    feature_data = ud.load_features(data_dict, baseline=baseline)
 
     # Split data into training and test sets
     train_Xs, train_ys, test_Xs, test_ys = ud.split_feature_data(
-        feature_data, test_session=test_session, test_subject=test_subject
+        feature_data,
+        test_session=test_session,
+        test_subject=test_subject,
+        standardize=baseline,
     )
 
     # Fit logistic regression classifier and predict test labels
