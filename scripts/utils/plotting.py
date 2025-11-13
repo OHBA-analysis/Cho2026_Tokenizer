@@ -1346,7 +1346,7 @@ def plot_decoding_bars(
     filename,
     model_names=None,
     ylim=None,
-    fontsize=14
+    fontsize=14,
 ):
     """Plots bar plots for model-specific decoding accuracy.
     
