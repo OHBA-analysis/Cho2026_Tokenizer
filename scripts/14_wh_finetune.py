@@ -183,7 +183,7 @@ if __name__ == "__main__":
         train_data = (
             tf.data.Dataset
             .from_tensor_slices(train_data)
-            .shuffle(buffer_size=10_000)
+            .shuffle(buffer_size=10_000, seed=BASE_SEED)
             .batch(16, drop_remainder=False)
             .prefetch(tf.data.AUTOTUNE)
         )
