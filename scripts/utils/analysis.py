@@ -2,14 +2,17 @@
 
 import os
 import numpy as np
+import tensorflow as tf
+import yaml
 from numpy.linalg import norm
 from scipy.spatial.distance import pdist, squareform
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from osl_dynamics.analysis import static
 from osl_dynamics.data import processing
 from osl_dynamics.inference import modes
+from osl_dynamics.utils import set_random_seed
 from utils import data as ud
+from models import create_model
 
 
 def compute_l2_distance(a, b, axis=-1):
@@ -368,9 +371,11 @@ def standardize_features(X_train, X_test):
 
 def compute_task_decoding_accuracy(
     data_dict,
+    config_path,
     test_session=None,
     test_subject=None,
     baseline=False,
+    seed=None,
 ):
     """Computes task decoding accuracy using logistic regression classifier.
     
@@ -379,6 +384,8 @@ def compute_task_decoding_accuracy(
     data_dict : dict
         Dictionary containing the feature data. Keys are session IDs and
         values are a tuple of task features and labels.
+    config_path : str
+        Path to the model configuration file.
     test_session : str, optional
         Session ID to be used as the test set. If None, all sessions
         are used for training.
@@ -388,6 +395,9 @@ def compute_task_decoding_accuracy(
     baseline : bool, optional
         If True, indicates that the baseline features are used.
         Default is False.
+    seed : int, optional
+        Random seed for reproducibility. If None, no seed is set.
+        Default is None.
 
     Returns
     -------
@@ -398,6 +408,15 @@ def compute_task_decoding_accuracy(
     if test_session is None and test_subject is None:
         raise ValueError("Either test_session or test_subject must be provided.")
 
+    # Set random seed for Python random, NumPy, and TensorFlow
+    if seed is not None:
+        set_random_seed(seed, op_determinism=False)
+
+    # Get batch size
+    with open(config_path, "rb") as f:
+        config = yaml.safe_load(f)
+    batch_size = config["training_config"]["batch_size"]
+
     # Load feature data
     feature_data = ud.load_features(data_dict, baseline=baseline)
 
@@ -406,24 +425,55 @@ def compute_task_decoding_accuracy(
         feature_data,
         test_session=test_session,
         test_subject=test_subject,
-        standardize=baseline,
     )
 
-    # Fit logistic regression classifier and predict test labels
-    clf = LogisticRegression(
-        penalty="l2",
-        solver="lbfgs",
-        max_iter=5000,
-        verbose=1,
-        n_jobs=16,
-        random_state=813,
+    # Concatenate data over sessions and event trials into batches
+    train_data = np.concatenate(train_Xs)
+    train_labels = np.concatenate(train_ys)
+    test_data = np.concatenate(test_Xs)
+    test_labels = np.concatenate(test_ys)
+
+    # Create TensorFlow datasets
+    train_data = {"data": train_data, "task_label": train_labels}
+    test_data = {"data": test_data, "task_label": test_labels}
+
+    train_data = (
+        tf.data.Dataset
+        .from_tensor_slices(train_data)
+        .shuffle(buffer_size=10_000, seed=seed)
+        .batch(batch_size, drop_remainder=False)
+        .prefetch(tf.data.AUTOTUNE)
     )
-    clf.fit(np.concatenate(train_Xs), np.concatenate(train_ys))
-    y_preds = [clf.predict(x) for x in test_Xs]
+    val_data = (
+        tf.data.Dataset
+        .from_tensor_slices(test_data)
+        .batch(batch_size, drop_remainder=False)
+        .prefetch(tf.data.AUTOTUNE)
+    )
+
+    # Build logistic regression classifier
+    classifier = create_model(config_path)
+    classifier.summary()
+
+    # Train the classifier
+    classifier.fit(
+        train_data,
+        validation_data=val_data,
+    )
+
+    # Evaluate the classifier
+    y_trues, y_preds = [], []
+    for test_X, test_y in zip(test_Xs, test_ys):
+        _, y_pred = classifier.model({
+            "data": test_X,
+            "task_label": test_y,
+        })
+        y_trues.append(test_y)
+        y_preds.append(np.argmax(y_pred.numpy(), axis=-1))
 
     # Compute accuracy for each test session
     acc = np.array([
         accuracy_score(y_true, y_pred)
-        for y_true, y_pred in zip(test_ys, y_preds)
+        for y_true, y_pred in zip(y_trues, y_preds)
     ]) # shape: (n_test_sessions,)
     return acc

@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tqdm.auto import tqdm
-from utils import analysis as ua
 
 
 def save(data, save_path):
@@ -442,32 +441,35 @@ def load_features(data_dict, baseline=False):
     baseline : bool, optional
         If True, indicates that the baseline features are used.
         Default is False.
-    
+
     Returns
     -------
     X : list of np.ndarray
         List of feature arrays for each session.
-        Shape of each array is (n_trials, n_features).
+        Shape of each array is (n_trials, n_samples, n_channels)
+        or (n_trials, n_channels, model_dim).
     y : list of np.ndarray
         List of label arrays for each session.
         Shape of each array is (n_trials,).
     session_ids : list of str
         List of session IDs corresponding to each session.
     """
-    # Extract and pre-process features and labels
+    # Load feature data
     if baseline:
-        X = list(map(
-            lambda x: x[0].reshape(x[0].shape[0], -1),
-            # flatten channel and time dimensions
-            data_dict.values(),
-        ))
+        X = list(map(lambda x: x[0], data_dict.values()))
     else:
         X = list(map(
-            lambda x: np.mean(x[0], axis=1).reshape(x[0].shape[0], -1),
-            # average over time dimension and flatten channel and model dimensions
-            data_dict.values(),
-        ))
+            lambda x: np.mean(x[0], axis=1), data_dict.values()
+        ))  # average over time
     y = list(map(lambda x: x[1], data_dict.values()))
+
+    # Convert task labels from string to integers
+    task_dictionary = {"famous": 0, "unfamiliar": 1, "scrambled": 2, "button": 3}
+    str_to_integer = lambda x, d: np.array([d[key] for key in x])
+    y = [
+        str_to_integer(y[n], task_dictionary)
+        for n in range(len(y))
+    ]
     return X, y, list(data_dict.keys())
 
 
@@ -475,7 +477,6 @@ def split_feature_data(
     data_tuples,
     test_session=None,
     test_subject=None,
-    standardize=False,
 ):
     """Splits feature data into training and test sets based on session ID.
     
@@ -492,9 +493,6 @@ def split_feature_data(
     test_subject : str, optional
         Subject ID to use for testing. If None, all subjects
         are used for training.
-    standardize : bool, optional
-        If True, standardizes features using training set statistics.
-        Default is False.
 
     Returns
     -------
@@ -521,9 +519,5 @@ def split_feature_data(
         else:
             train_Xs.append(x)
             train_ys.append(y)
-
-    # Standardize features
-    if standardize:
-        train_Xs, test_Xs = ua.standardize_features(train_Xs, test_Xs)
 
     return train_Xs, train_ys, test_Xs, test_ys

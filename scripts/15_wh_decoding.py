@@ -1,15 +1,18 @@
 """Script for Wakeman-Henson task decoding."""
 
 # Import packages
+import gc
 import os
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 from glob import glob
 from osl_dynamics.inference import tf_ops
-from osl_foundation import create_model, load_model
+from osl_foundation import create_model
 from utils import analysis as ua
 from utils import data as ud
 from utils import plotting as up
+from models import load_model
 
 
 if __name__ == "__main__":
@@ -38,6 +41,9 @@ if __name__ == "__main__":
             "Fine tuning mode must be either 'baseline', 'zero_shot', " +
             "'zero_shot_subject_emb', 'fine_tune', or 'visualize'."
         )
+    
+    # Define random seed for Python random, NumPy, and TensorFlow
+    BASE_SEED = 813
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
@@ -68,12 +74,11 @@ if __name__ == "__main__":
         # Extract features
         if ft_mode == "baseline":
             # Define save paths
-            feature_save_path = f"{save_dir}/decoding_features.pkl"
             decoding_ws_save_path = f"{save_dir}/decoding_accuracies_ws.pkl"
             decoding_ns_save_path = f"{save_dir}/decoding_accuracies_ns.pkl"
 
-            # Extract features for baseline model
-            if not os.path.exists(feature_save_path):
+            # Compute session-wise decoding accuracy for each model
+            if not os.path.exists(decoding_ws_save_path) or not os.path.exists(decoding_ns_save_path):
                 print("Extracting features using baseline model ...")
 
                 # Get data files
@@ -101,23 +106,25 @@ if __name__ == "__main__":
                     session_id = file.split("/")[-2]
                     data_dict[session_id] = (feature, label)
 
-                ud.save(data_dict, feature_save_path)
-            
-            else:
-                print(f"\tFeatures for the baseline model already exist. Skipping extraction.")
-
-            # Compute session-wise decoding accuracy for each model
-            if not os.path.exists(decoding_ws_save_path) or not os.path.exists(decoding_ns_save_path):
+                # Compute decoding accuracy
                 print(f"Computing decoding accuracy for baseline model ...")
                 
                 decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
-                    feature_save_path, test_session="run06", baseline=True
+                    data_dict,
+                    config_path=f"{MODEL_DIR}/within_subject/config.yml",
+                    test_session="run06",
+                    baseline=True,
+                    seed=BASE_SEED,
                 )
                 print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
                 print(f"\tShape: {decoding_accuracy_ws.shape}")
 
                 decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
-                    feature_save_path, test_subject="sub19", baseline=True
+                    data_dict,
+                    config_path=f"{MODEL_DIR}/new_subject/config.yml",
+                    test_subject="sub19",
+                    baseline=True,
+                    seed=BASE_SEED,
                 )
                 print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")
                 print(f"\tShape: {decoding_accuracy_ns.shape}")
@@ -157,7 +164,13 @@ if __name__ == "__main__":
                     if ft_mode == "zero_shot":
                         decoding_model = create_model(f"{model_path}/config.yml")
                     else:
-                        decoding_model = load_model(model_path, checkpoint="latest")
+                        decoding_model = load_model(
+                            os.path.join(
+                                os.path.dirname(MODEL_DIR),
+                                f"fine_tune/subject_emb/{name}/{gt_run_id}",
+                            ),
+                            checkpoint="latest",
+                        )
                     sequence_length = decoding_model.config.model_config.sequence_length
                     print(f"\tSequence length: {sequence_length}")
 
@@ -187,16 +200,28 @@ if __name__ == "__main__":
                         session_id = file.split("/")[-1]
                         data_dict[session_id] = (feature, label)
 
+                    # Clear previous model and secure memory
+                    del decoding_model
+                    tf.keras.backend.clear_session()
+                    gc.collect()
+
+                    # Compute decoding accuracy
                     print(f"Computing decoding accuracy for {name} model ...")
                     
                     decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
-                        data_dict, test_session="run06"
+                        data_dict,
+                        config_path=f"{model_path}/within_subject/config.yml",
+                        test_session="run06",
+                        seed=BASE_SEED,
                     )
                     print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
                     print(f"\tShape: {decoding_accuracy_ws.shape}")
 
                     decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
-                        data_dict, test_subject="sub19"
+                        data_dict,
+                        config_path=f"{model_path}/new_subject/config.yml",
+                        test_subject="sub19",
+                        seed=BASE_SEED,
                     )
                     print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")
                     print(f"\tShape: {decoding_accuracy_ns.shape}")
