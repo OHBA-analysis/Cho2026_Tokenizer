@@ -12,7 +12,7 @@ from osl_dynamics.data import processing
 from osl_dynamics.inference import modes
 from osl_dynamics.utils import set_random_seed
 from utils import data as ud
-from models import create_model
+from models import create_model, load_model
 
 
 def compute_l2_distance(a, b, axis=-1):
@@ -470,6 +470,98 @@ def compute_task_decoding_accuracy(
         })
         y_trues.append(test_y)
         y_preds.append(np.argmax(y_pred.numpy(), axis=-1))
+
+    # Compute accuracy for each test session
+    acc = np.array([
+        accuracy_score(y_true, y_pred)
+        for y_true, y_pred in zip(y_trues, y_preds)
+    ]) # shape: (n_test_sessions,)
+    return acc
+
+
+def evaluate_fine_tuned_model(
+    data_dict,
+    config_dir,
+    test_session=None,
+    test_subject=None,
+    batch_size=10,
+):
+    """Evaluates a fine-tuned model on the test data.
+
+    Parameters
+    ----------
+    data_dict : dict
+        Dictionary containing the feature data. Keys are session IDs and
+        values are a tuple of task data and labels.
+    config_dir : str
+        Directory containing the fine-tuned model configuration and weights.
+    test_session : str, optional
+        Session ID to be used as the test set. If None, all sessions
+        are used for training.
+    test_subject : str, optional
+        Subject ID to be used as the test set. If None, all subjects
+        are used for training.
+    batch_size : int, optional
+        Batch size for evaluation. Default is 10.
+    
+    Returns
+    -------
+    acc : np.ndarray
+        Array of decoding accuracies for each test session.
+    """
+    # Validate inputs
+    if test_session is None and test_subject is None:
+        raise ValueError("Either test_session or test_subject must be provided.")
+
+    # Unpack data
+    task_data, task_labels = [], []
+    for data, labels in data_dict.values():
+        task_data.append(data)
+        task_labels.append(labels)
+
+    # Convert task labels from string to integers
+    task_dictionary = {"famous": 0, "unfamiliar": 1, "scrambled": 2, "button": 3}
+    str_to_integer = lambda x, d: np.array([d[key] for key in x])
+    task_labels = [
+        str_to_integer(task_labels[n], task_dictionary)
+        for n in range(len(task_labels))
+    ]
+
+    # Get the test sets
+    test_Xs, test_ys, test_subjects = [], [], []
+    for i, session_id in enumerate(list(data_dict.keys())):
+        run_id = session_id.split("_")[1]
+        subject_id = session_id.split("_")[0]
+        if (run_id == test_session) or (subject_id == test_subject):
+            test_Xs.append(task_data[i].astype(np.int32))
+            test_ys.append(task_labels[i].astype(np.int32))
+            test_subjects.append(
+                np.full(task_data[i].shape[:2], int(subject_id[3:]) - 1).astype(np.int32)
+            )
+
+    # Load fine-tuned model
+    ft_model = load_model(config_dir, checkpoint="latest")
+    ft_model.summary()
+
+    # Evaluate the model
+    y_trues, y_preds = [], []
+    for test_X, test_y, test_subject in zip(test_Xs, test_ys, test_subjects):
+        trial_idx = np.array_split(
+            np.arange(test_X.shape[0]), batch_size
+        )
+        y_pred = np.zeros_like(test_y)
+        for idx in trial_idx:
+            _, pred = ft_model.model({
+                "data": test_X[idx],
+                "session_id": test_subject[idx],
+                "task_label": test_y[idx],
+            }, training=False)
+            pred = np.argmax(pred.numpy(), axis=-1)
+            y_pred[idx] = pred
+
+        # Collect session-level true and predicted labels
+        y_trues.append(test_y)
+        y_preds.append(y_pred)
 
     # Compute accuracy for each test session
     acc = np.array([

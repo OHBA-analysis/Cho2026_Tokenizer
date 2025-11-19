@@ -32,6 +32,7 @@ if __name__ == "__main__":
     tk_run_ids = [25, 27, 0, 0, 0, 0, 0]
     gt_run_id = 1  # pre-trained model run ID
     ft_mode = "visualize"
+    sequence_length = 80  # sequence length for task trials
 
     # Validate inputs
     if ft_mode not in [
@@ -55,18 +56,7 @@ if __name__ == "__main__":
     if ft_mode != "visualize":
         # Create directories to save features and figures
         save_dir = f"{BASE_DIR}/data/wh_decoding/{ft_mode}"
-        fig_dir = f"{BASE_DIR}/plots/decoding_models/{ft_mode}"
         os.makedirs(save_dir, exist_ok=True)
-        os.makedirs(fig_dir, exist_ok=True)
-
-        # Plot fine-tuning history
-        # (i.e., training/validation loss and top 1 accuracy curves)
-        if ft_mode == "fine_tune":
-            for name in model_names:
-                up.plot_generator_history(
-                    model_dir=f"{MODEL_DIR}/{name}/{gt_run_id}",
-                    save_dir=f"{fig_dir}/{name}/{gt_run_id}",
-                )
 
         # Get subject IDs
         subject_ids = [f"sub{i:02d}" for i in range(1, n_subjects + 1)]
@@ -159,20 +149,19 @@ if __name__ == "__main__":
                         )
                     print(f"\tTotal number of sessions: {n_total_sessions}")
 
-                    # Set model path
-                    model_path = f"{MODEL_DIR}/{name}/{gt_run_id}"
-                    if ft_mode == "zero_shot":
-                        decoding_model = create_model(f"{model_path}/config.yml")
-                    else:
-                        decoding_model = load_model(
-                            os.path.join(
-                                os.path.dirname(MODEL_DIR),
-                                f"fine_tune/subject_emb/{name}/{gt_run_id}",
-                            ),
-                            checkpoint="latest",
-                        )
-                    sequence_length = decoding_model.config.model_config.sequence_length
-                    print(f"\tSequence length: {sequence_length}")
+                    # Load models
+                    if ft_mode in ["zero_shot", "zero_shot_subject_emb"]:
+                        model_path = f"{MODEL_DIR}/{name}/{gt_run_id}"
+                        if ft_mode == "zero_shot":
+                            decoding_model = create_model(f"{model_path}/config.yml")
+                        elif ft_mode == "zero_shot_subject_emb":
+                            decoding_model = load_model(
+                                os.path.join(
+                                    os.path.dirname(MODEL_DIR),
+                                    f"fine_tune/subject_emb/{name}/{gt_run_id}",
+                                ),
+                                checkpoint="latest",
+                            )
 
                     # Extract task event trials and labels
                     task_trials, task_labels = ud.get_event_trials_and_labels(
@@ -182,17 +171,26 @@ if __name__ == "__main__":
                     # task_labels.shape: (n_sessions, n_trials)
 
                     # Extract features for each session
-                    if ft_mode == "zero_shot":
-                        subject_ids = [None] * n_sessions * n_subjects
+                    if ft_mode == "fine_tune":
+                        task_features = task_trials
                     else:
-                        subject_ids = np.repeat(np.arange(n_subjects), n_sessions)
+                        if ft_mode == "zero_shot":
+                            subject_ids = [None] * n_sessions * n_subjects
+                        elif ft_mode == "zero_shot_subject_emb":
+                            subject_ids = np.repeat(np.arange(n_subjects), n_sessions)
 
-                    task_features = ud.get_features(
-                        decoding_model,
-                        task_trials,
-                        subject_ids=subject_ids,
-                        batch_size=64,
-                    )
+                        task_features = ud.get_features(
+                            decoding_model,
+                            task_trials,
+                            subject_ids=subject_ids,
+                            batch_size=64,
+                        )
+                        # task_features.shape: (n_sessions, n_trials, n_samples, n_channels, model_dim)
+
+                        # Clear previous model and secure memory
+                        del decoding_model
+                        tf.keras.backend.clear_session()
+                        gc.collect()
 
                     # Save features and labels
                     data_dict = {}
@@ -200,29 +198,37 @@ if __name__ == "__main__":
                         session_id = file.split("/")[-1]
                         data_dict[session_id] = (feature, label)
 
-                    # Clear previous model and secure memory
-                    del decoding_model
-                    tf.keras.backend.clear_session()
-                    gc.collect()
-
                     # Compute decoding accuracy
                     print(f"Computing decoding accuracy for {name} model ...")
                     
-                    decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
-                        data_dict,
-                        config_path=f"{model_path}/within_subject/config.yml",
-                        test_session="run06",
-                        seed=BASE_SEED,
-                    )
+                    if ft_mode == "fine_tune":
+                        decoding_accuracy_ws = ua.evaluate_fine_tuned_model(
+                            data_dict,
+                            config_dir=f"{MODEL_DIR}/within_subject/{name}/{gt_run_id}",
+                            test_session="run06",
+                        )
+                        decoding_accuracy_ns = ua.evaluate_fine_tuned_model(
+                            data_dict,
+                            config_dir=f"{MODEL_DIR}/new_subject/{name}/{gt_run_id}",
+                            test_subject="sub19",
+                        )
+                    else:
+                        decoding_accuracy_ws = ua.compute_task_decoding_accuracy(
+                            data_dict,
+                            config_path=f"{model_path}/within_subject/config.yml",
+                            test_session="run06",
+                            seed=BASE_SEED,
+                        )
+                        decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
+                            data_dict,
+                            config_path=f"{model_path}/new_subject/config.yml",
+                            test_subject="sub19",
+                            seed=BASE_SEED,
+                        )
+                    
                     print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
                     print(f"\tShape: {decoding_accuracy_ws.shape}")
 
-                    decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
-                        data_dict,
-                        config_path=f"{model_path}/new_subject/config.yml",
-                        test_subject="sub19",
-                        seed=BASE_SEED,
-                    )
                     print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")
                     print(f"\tShape: {decoding_accuracy_ns.shape}")
 
@@ -235,6 +241,31 @@ if __name__ == "__main__":
 
     # ---------- Visualization ---------- #
     if ft_mode == "visualize":
+        # Plot model training history
+        # (i.e., training/validation loss and top 1 accuracy curves)
+        for mode in ["baseline", "zero_shot", "zero_shot_subject_emb", "fine_tune"]:
+            for task_type in ["within_subject", "new_subject"]:
+                model_dir = f"{BASE_DIR}/models/decoding_models/{mode}"
+                save_dir = f"{BASE_DIR}/plots/decoding_models/{mode}"
+
+                if mode == "baseline":
+                    up.plot_generator_history(
+                        model_dir=f"{model_dir}/{task_type}",
+                        save_dir=f"{save_dir}/{task_type}",
+                    )
+                else:
+                    for name in model_names:
+                        up.plot_generator_history(
+                            model_dir=(
+                                f"{model_dir}/{name}/{gt_run_id}/{task_type}" if mode != "fine_tune"
+                                else f"{model_dir}/{task_type}/{name}/{gt_run_id}"
+                            ),
+                            save_dir=(
+                                f"{save_dir}/{name}/{gt_run_id}/{task_type}" if mode != "fine_tune"
+                                else f"{save_dir}/{task_type}/{name}/{gt_run_id}"
+                            ),
+                        )
+
         # Set color palette
         token_nums = np.load(f"{BASE_DIR}/models/tokenizer/token_nums.npy")
         color_palette = {
@@ -306,14 +337,19 @@ if __name__ == "__main__":
                      "acc_zs_ns.png", "acc_zs_se_ns.png", "acc_ft_ns.png"]
         
         for df, mode, filename in zip(dfs, modes, filenames):
+            model_names = None
+            if mode == "Zero-Shot":
+                model_names = ["causal", "noncausal"]
+                if filename.split("_")[2][:2] == "ws":
+                    model_names.append("standard_quantile")
+                else:
+                    model_names.append("mu_transform_tiny")
+
             up.plot_decoding_bars(
                 df,
                 mode=mode,
                 palette=color_palette_1,
-                model_names=(
-                    ["causal", "noncausal", "mu_transform_small"]
-                    if mode == "Zero-Shot" else None
-                ),
+                model_names=model_names,
                 filename=filename,
                 ylim=[0.0, 0.8],
             )
