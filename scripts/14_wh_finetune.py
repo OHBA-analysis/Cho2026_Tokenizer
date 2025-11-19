@@ -4,6 +4,7 @@
 import os
 import numpy as np
 import tensorflow as tf
+import yaml
 from sys import argv
 from glob import glob
 from osl_dynamics.data import load_tfrecord_dataset
@@ -110,6 +111,11 @@ if __name__ == "__main__":
         data_files = sorted(glob(f"{tokenized_data_fif_dir}/*.fif"))
         n_total_sessions = len(data_files)
 
+        # Get batch size
+        with open(f"{model_dir}/config.yml", "rb") as f:
+            config = yaml.safe_load(f)
+        batch_size = config["training_config"]["batch_size"]
+
         # Extract task event data and labels
         task_data, task_labels = ud.get_event_trials_and_labels(
             data_files, sequence_length=80,
@@ -160,13 +166,13 @@ if __name__ == "__main__":
             # all sessions of subject 19 are used for validation
 
         # Concatenate data over sessions and event trials into batches
-        train_data = np.concatenate(train_data, dtype=np.int32)
-        train_labels = np.concatenate(train_labels, dtype=np.int32)
-        train_subjects = np.concatenate(train_subjects, dtype=np.int32)
+        train_data = np.concatenate(train_data).astype(np.int32)
+        train_labels = np.concatenate(train_labels).astype(np.int32)
+        train_subjects = np.concatenate(train_subjects).astype(np.int32)
 
-        val_data = np.concatenate(val_data, dtype=np.int32)
-        val_labels = np.concatenate(val_labels, dtype=np.int32)
-        val_subjects = np.concatenate(val_subjects, dtype=np.int32)
+        val_data = np.concatenate(val_data).astype(np.int32)
+        val_labels = np.concatenate(val_labels).astype(np.int32)
+        val_subjects = np.concatenate(val_subjects).astype(np.int32)
 
         # Create TensorFlow datasets
         train_data = {
@@ -184,13 +190,13 @@ if __name__ == "__main__":
             tf.data.Dataset
             .from_tensor_slices(train_data)
             .shuffle(buffer_size=10_000, seed=BASE_SEED)
-            .batch(16, drop_remainder=False)
+            .batch(batch_size, drop_remainder=False)
             .prefetch(tf.data.AUTOTUNE)
         )
         val_data = (
             tf.data.Dataset
             .from_tensor_slices(val_data)
-            .batch(16, drop_remainder=False)
+            .batch(batch_size, drop_remainder=False)
             .prefetch(tf.data.AUTOTUNE)
         )
 
