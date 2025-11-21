@@ -375,6 +375,8 @@ def compute_task_decoding_accuracy(
     test_session=None,
     test_subject=None,
     seed=None,
+    use_tfrecord=False,
+    save_dir="tmp",
 ):
     """Computes task decoding accuracy using logistic regression classifier.
     
@@ -394,6 +396,11 @@ def compute_task_decoding_accuracy(
     seed : int, optional
         Random seed for reproducibility. If None, no seed is set.
         Default is None.
+    use_tfrecord : bool, optional
+        Whether to use TFRecord datasets for training and evaluation.
+        Default is False.
+    save_dir : str, optional
+        Directory to save TFRecord datasets. Default is "tmp".
 
     Returns
     -------
@@ -423,29 +430,50 @@ def compute_task_decoding_accuracy(
         test_subject=test_subject,
     )
 
-    # Concatenate data over sessions and event trials into batches
-    train_data = np.concatenate(train_Xs)
-    train_labels = np.concatenate(train_ys)
-    test_data = np.concatenate(test_Xs)
-    test_labels = np.concatenate(test_ys)
+    # Create TFRecord datasets
+    if use_tfrecord:
+        ud.write_tfrecord_shards(train_Xs, train_ys, save_dir=f"{save_dir}/train")
+        ud.write_tfrecord_shards(test_Xs, test_ys, save_dir=f"{save_dir}/val")
 
-    # Create TensorFlow datasets
-    train_data = {"data": train_data, "task_label": train_labels}
-    test_data = {"data": test_data, "task_label": test_labels}
+        train_data = ud.load_tfrecord_shards(
+            f"{save_dir}/train",
+            batch_size=batch_size,
+            buffer=10_000,
+            seed=seed,
+            drop_remainder=False,
+        )
+        val_data = ud.load_tfrecord_shards(
+            f"{save_dir}/val",
+            batch_size=batch_size,
+            buffer=10_000,
+            seed=seed,
+            shuffle=False,
+            drop_remainder=False,
+        )
+    else:
+        # Concatenate data over sessions and event trials into batches
+        train_data = np.concatenate(train_Xs)
+        train_labels = np.concatenate(train_ys)
+        test_data = np.concatenate(test_Xs)
+        test_labels = np.concatenate(test_ys)
 
-    train_data = (
-        tf.data.Dataset
-        .from_tensor_slices(train_data)
-        .shuffle(buffer_size=10_000, seed=seed)
-        .batch(batch_size, drop_remainder=False)
-        .prefetch(tf.data.AUTOTUNE)
-    )
-    val_data = (
-        tf.data.Dataset
-        .from_tensor_slices(test_data)
-        .batch(batch_size, drop_remainder=False)
-        .prefetch(tf.data.AUTOTUNE)
-    )
+        # Create TensorFlow datasets
+        train_data = {"data": train_data, "task_label": train_labels}
+        test_data = {"data": test_data, "task_label": test_labels}
+
+        train_data = (
+            tf.data.Dataset
+            .from_tensor_slices(train_data)
+            .shuffle(buffer_size=10_000, seed=seed)
+            .batch(batch_size, drop_remainder=False)
+            .prefetch(tf.data.AUTOTUNE)
+        )
+        val_data = (
+            tf.data.Dataset
+            .from_tensor_slices(test_data)
+            .batch(batch_size, drop_remainder=False)
+            .prefetch(tf.data.AUTOTUNE)
+        )
 
     # Build logistic regression classifier
     classifier = create_model(config_path)

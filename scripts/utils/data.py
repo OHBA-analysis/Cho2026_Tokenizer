@@ -1,12 +1,14 @@
 """Functions for data loading and management."""
 
 import os
+import uuid
 import pickle
 import math
 import mne
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from glob import glob
 from tqdm.auto import tqdm
 
 
@@ -513,3 +515,176 @@ def split_feature_data(
             train_ys.append(y)
 
     return train_Xs, train_ys, test_Xs, test_ys
+
+
+def write_tfrecord_shards(
+    data,
+    labels,
+    save_dir,
+    dtype=np.float32,
+    save_config=True,
+):
+    """Writes data and labels into TFRecord shards.
+    
+    Parameters
+    ----------
+    data : list of np.ndarray
+        List of 3D numpy arrays containing data for each session.
+        Each array has shape (n_trials, n_samples, n_channels).
+    labels : list of np.ndarray
+        List of 1D numpy arrays containing labels for each session.
+        Each array has shape (n_trials,).
+    save_dir : str
+        Directory where TFRecord files will be saved.
+    dtype : data-type, optional
+        Desired data-type for the data. Default is np.float32.
+    save_config : bool, optional
+        Whether to save a configuration file with metadata. Default is True.
+    """
+    # Ensure save directory exists
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Define helper functions
+    def _bytes_feature(value):
+        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+    
+    def _int64_feature(value):
+        return tf.train.Feature(int64_list=tf.train.Int64List(value=[int(value)]))
+
+    # Get data dimensions
+    n_sessions = len(data)
+    assert n_sessions == len(labels), \
+        "Data and labels must have the same number of sessions."
+
+    _, L, C, D = data[0].shape
+
+    n_total_examples = sum([x.shape[0] for x in data])
+    if n_total_examples == 0:
+        raise ValueError("No data found in the provided data list.")
+
+    # Write TFRecord files    
+    filenames = []
+    for idx, (session_data, session_labels) in enumerate(zip(data, labels)):
+        n_trials = int(session_data.shape[0])
+        fname = os.path.join(save_dir, f"dataset-sess{idx:03d}.tfrecord")
+        filenames.append(fname)
+        with tf.io.TFRecordWriter(fname) as writer:
+            for i in range(n_trials):
+                x = np.asarray(session_data[i], dtype=dtype)
+                l, c, d = x.shape
+                feature = {
+                    "x_bytes": _bytes_feature(x.tobytes()),
+                    "label": _int64_feature(int(session_labels[i])),
+                    "sequence_length": _int64_feature(l),
+                    "n_channels": _int64_feature(c),
+                    "model_dim": _int64_feature(d),
+                }
+                example = tf.train.Example(
+                    features=tf.train.Features(feature=feature)
+                )
+                writer.write(example.SerializeToString())
+    
+    # Save configurations for data loading
+    if save_config:
+        config = {
+            "n_sessions": n_sessions,
+            "n_total_examples": n_total_examples,
+            "input_shape": (int(L), int(C), int(D)),
+            "dtype": str(dtype),
+            "identifier": str(uuid.uuid4()),
+            "filenames": filenames,
+        }
+        config_path = os.path.join(save_dir, f"tfrecord_config.pkl")
+        save(config, config_path)
+
+    return None
+
+
+def load_tfrecord_shards(
+    tfrecord_dir,
+    batch_size,
+    buffer=10_000,
+    dtype=tf.float32,
+    seed=None,
+    shuffle=True,
+    drop_remainder=False,
+):
+    """Loads TFRecord shards into a TFRecord dataset.
+    
+    Parameters
+    ----------
+    tfrecord_dir : str
+        Directory containing TFRecord files to load.
+    batch_size : int
+        Batch size for the dataset.
+    buffer : int, optional
+        Buffer size for shuffling aw. Default is 10,000.
+    dtype : tf.DType, optional
+        Data type for the data. Default is tf.float32.
+    seed : int or None, optional
+        Random seed for shuffling. Default is None.
+    shuffle : bool, optional
+        Whether to shuffle the dataset. Default is True.
+    drop_remainder : bool, optional
+        Whether to drop the last batch if it has fewer than batch_size samples.
+        Default is False.
+
+    Returns
+    -------
+    ds : tf.data.TFRecordDataset
+        TensorFlow dataset containing the loaded data.
+    """
+    # Validate inputs
+    if seed is None:
+        seed = np.random.randint(0, 1e6)
+
+    # Load TFRecord filenames
+    tfrecord_filenames = sorted(glob(f"{tfrecord_dir}/*.tfrecord"))
+    
+    # Get data input shape
+    tfrecord_config = load(f"{tfrecord_dir}/tfrecord_config.pkl")
+    input_shape = tfrecord_config["input_shape"]
+    
+    # Define feature description
+    feature_description = {
+        "x_bytes": tf.io.FixedLenFeature([], tf.string),
+        "label": tf.io.FixedLenFeature([], tf.int64),
+        "sequence_length": tf.io.FixedLenFeature([], tf.int64),
+        "n_channels": tf.io.FixedLenFeature([], tf.int64),
+        "model_dim": tf.io.FixedLenFeature([], tf.int64),
+    }
+
+    # Define parsing function
+    def _parse_example(serialized_example):
+        # Parse the input example
+        ex = tf.io.parse_single_example(serialized_example, feature_description)
+
+        # Get data dimensions
+        seq_len = tf.cast(ex["sequence_length"], tf.int32)
+        n_channels = tf.cast(ex["n_channels"], tf.int32)
+        model_dim = tf.cast(ex["model_dim"], tf.int32)
+        
+        # Decode and reshape data
+        data = tf.io.decode_raw(ex["x_bytes"], dtype)
+        data = tf.reshape(data, (seq_len, n_channels, model_dim))
+        label = tf.cast(ex["label"], tf.int32)
+        return {
+            "data": tf.ensure_shape(data, input_shape),
+            "task_label": label,
+        }
+    
+    # Create TFRecord dataset
+    filenames = tf.data.Dataset.from_tensor_slices(tfrecord_filenames)
+    if shuffle:
+        filenames = filenames.shuffle(len(tfrecord_filenames), seed=seed)
+    ds = filenames.interleave(
+        lambda f: tf.data.TFRecordDataset(f),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
+    ds = ds.map(_parse_example, num_parallel_calls=tf.data.AUTOTUNE)
+    if shuffle:
+        ds = ds.shuffle(buffer, seed=seed + 1)  # shuffle sequences
+    ds = ds.batch(batch_size, drop_remainder=drop_remainder)  # group into batches
+    if shuffle:
+        ds = ds.shuffle(buffer, seed=seed + 2)  # shuffle batches
+    return ds.prefetch(tf.data.AUTOTUNE)

@@ -216,12 +216,14 @@ if __name__ == "__main__":
                             config_path=f"{model_path}/within_subject/config.yml",
                             test_session="run06",
                             seed=BASE_SEED,
+                            save_dir=f"{model_path}/within_subject/tfrecords"
                         )
                         decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
                             data_dict,
                             config_path=f"{model_path}/new_subject/config.yml",
                             test_subject="sub19",
                             seed=BASE_SEED,
+                            save_dir=f"{model_path}/new_subject/tfrecords"
                         )
                     
                     print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
