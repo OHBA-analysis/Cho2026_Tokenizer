@@ -701,6 +701,9 @@ class MEGGPT_FT(BaseModel):
         shift_token_layer = ShiftTokenLayer(name="shift_token")
         input_embedding_layer = self._get_input_embedding_layer()
         decoder_layer = self._get_decoder_layer()
+        linear_projection_layer = tf.keras.layers.Dense(
+            1, name="linear_projection"
+        )
         norm_layer = NormalizationLayer(
             norm_type="layer", n_groups=None, name="layer_norm"
         )
@@ -722,11 +725,14 @@ class MEGGPT_FT(BaseModel):
         x = decoder_layer(x, training=not "decoder" in self.pretrained_layers)
         # x.shape = (batch_size, latent_sequence_length, n_channels, model_dim)
 
+        # Reduce the time dimension
+        x = tf.transpose(x, perm=[0, 2, 3, 1])
+        x = linear_projection_layer(x)
+        x = tf.squeeze(x, axis=-1)
+        # x.shape = (batch_size, n_channels, model_dim)
+
         # Pool and flatten the decoder output
-        x = tf.reshape(
-            tf.reduce_mean(x, axis=1),
-            shape=[-1, config.n_channels * config.model_dim],
-        )
+        x = tf.reshape(x, shape=[-1, config.n_channels * config.model_dim])
         # x.shape = (batch_size, n_channels * model_dim)
 
         # Apply layer normalization

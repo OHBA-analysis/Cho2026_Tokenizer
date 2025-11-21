@@ -430,7 +430,7 @@ def get_features(generator, trials, subject_ids, batch_size):
     return features
 
 
-def load_features(data_dict, baseline=False):
+def load_features(data_dict):
     """Loads saved feature data from a specified path.
     
     Parameters
@@ -438,16 +438,13 @@ def load_features(data_dict, baseline=False):
     data_dict : dict
         Dictionary containing the feature data. Keys are session IDs and
         values are a tuple of task features and labels.
-    baseline : bool, optional
-        If True, indicates that the baseline features are used.
-        Default is False.
 
     Returns
     -------
     X : list of np.ndarray
         List of feature arrays for each session.
         Shape of each array is (n_trials, n_samples, n_channels)
-        or (n_trials, n_channels, model_dim).
+        or (n_trials, latent_sequence_length, n_channels, model_dim).
     y : list of np.ndarray
         List of label arrays for each session.
         Shape of each array is (n_trials,).
@@ -455,12 +452,7 @@ def load_features(data_dict, baseline=False):
         List of session IDs corresponding to each session.
     """
     # Load feature data
-    if baseline:
-        X = list(map(lambda x: x[0], data_dict.values()))
-    else:
-        X = list(map(
-            lambda x: np.mean(x[0], axis=1), data_dict.values()
-        ))  # average over time
+    X = list(map(lambda x: x[0], data_dict.values()))
     y = list(map(lambda x: x[1], data_dict.values()))
 
     # Convert task labels from string to integers

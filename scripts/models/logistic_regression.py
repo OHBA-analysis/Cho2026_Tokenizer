@@ -149,14 +149,16 @@ class LogisticRegression(BaseModel):
         if config.feature_type == "baseline":
             input_shape = (config.sequence_length, config.n_channels)
         elif config.feature_type in ["zero_shot", "fine_tune"]:
-            input_shape = (config.n_channels, config.model_dim)
+            input_shape = (
+                config.latent_sequence_length, config.n_channels, config.model_dim
+            )
 
-        data = tf.keras.layers.Input(
+        data_input = tf.keras.layers.Input(
             shape=input_shape,
             dtype=tf.float32,
             name="data",
         )
-        # data.shape = (batch_size, sequence_length, n_channels); or
+        # data.shape = (batch_size, latent_sequence_length, n_channels, model_dim); or
         # data.shape = (batch_size, n_channels, model_dim)
 
         task_label = tf.keras.layers.Input(
@@ -165,6 +167,10 @@ class LogisticRegression(BaseModel):
         # task_label.shape = (batch_size,)
 
         # ---------- Initialize layers ---------- #
+        if config.feature_type != "baseline":
+            linear_projection_layer = tf.keras.layers.Dense(
+                1, name="linear_projection"
+            )
         norm_layer = NormalizationLayer(config.norm_type, config.n_groups)
         prediction_head_layer = tf.keras.layers.Dense(
             config.n_task_classes,
@@ -173,6 +179,16 @@ class LogisticRegression(BaseModel):
         loss_layer = CrossEntropyLossLayer(config.top_k, name="loss")
 
         # ---------- Forward Pass ---------- #
+        
+        # Set input data
+        data = data_input
+
+        # Reduce the time dimension if using non-baseline features
+        if config.feature_type != "baseline":
+            data = tf.transpose(data, perm=[0, 2, 3, 1])
+            data = linear_projection_layer(data)
+            data = tf.squeeze(data, axis=-1)
+            # data.shape = (batch_size, n_channels, model_dim)
 
         # Pool and flatten the input data features
         x = self._pool_data(data)
@@ -191,7 +207,7 @@ class LogisticRegression(BaseModel):
 
         # ---------- Model ---------- #
         return tf.keras.Model(
-            inputs=[data, task_label],
+            inputs=[data_input, task_label],
             outputs=[loss, y_pred],
             name="logistic_regression",
         )

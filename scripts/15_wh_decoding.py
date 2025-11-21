@@ -103,7 +103,6 @@ if __name__ == "__main__":
                     data_dict,
                     config_path=f"{MODEL_DIR}/within_subject/config.yml",
                     test_session="run06",
-                    baseline=True,
                     seed=BASE_SEED,
                 )
                 print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
@@ -113,7 +112,6 @@ if __name__ == "__main__":
                     data_dict,
                     config_path=f"{MODEL_DIR}/new_subject/config.yml",
                     test_subject="sub19",
-                    baseline=True,
                     seed=BASE_SEED,
                 )
                 print(f"\tDecoding accuracy (new subject): {decoding_accuracy_ns}")

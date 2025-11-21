@@ -374,7 +374,6 @@ def compute_task_decoding_accuracy(
     config_path,
     test_session=None,
     test_subject=None,
-    baseline=False,
     seed=None,
 ):
     """Computes task decoding accuracy using logistic regression classifier.
@@ -392,9 +391,6 @@ def compute_task_decoding_accuracy(
     test_subject : str, optional
         Subject ID to be used as the test set. If None, all subjects
         are used for training.
-    baseline : bool, optional
-        If True, indicates that the baseline features are used.
-        Default is False.
     seed : int, optional
         Random seed for reproducibility. If None, no seed is set.
         Default is None.
@@ -418,7 +414,7 @@ def compute_task_decoding_accuracy(
     batch_size = config["training_config"]["batch_size"]
 
     # Load feature data
-    feature_data = ud.load_features(data_dict, baseline=baseline)
+    feature_data = ud.load_features(data_dict)
 
     # Split data into training and test sets
     train_Xs, train_ys, test_Xs, test_ys = ud.split_feature_data(
