@@ -1,9 +1,9 @@
-"""Module providing the EphysGPT model configuration.
+"""Module providing the MEG-GPT model configuration.
 
 This module is adapted from the osl_foundation framework
 (see osl_foundation/config/generator_config.py).
 
-- Added a "name" attribute to the EphysGPTModelConfig class.
+- Added a "name" attribute to the MEGGPTModelConfig class.
 """
 
 # Import packages
@@ -33,8 +33,8 @@ class Label:
 
 
 @dataclass
-class EphysGPTModelConfig(BaseModelConfig):
-    name: str = "ephys_gpt"
+class MEGGPTModelConfig(BaseModelConfig):
+    name: str = "meg_gpt"
 
     # ---------- Pretrained model ---------- #
     pretrained_model_path: str = None
@@ -165,7 +165,7 @@ class EphysGPTModelConfig(BaseModelConfig):
         ), "loss_sequence_length must be less or equal to latent_sequence_length"
 
     def set_config(self, config: dict) -> None:
-        self.name = config.get("name", "ephys_gpt")
+        self.name = config.get("name", "meg_gpt")
         self._set_pretrained_model_parameters(config.get("pretrained_model", {}))
         self._set_tokenizer_path(config)
         self._set_input_parameters(config.get("input_parameters", {}))

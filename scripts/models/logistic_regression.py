@@ -91,7 +91,6 @@ class LogisticRegression(BaseModel):
 
         # If step_per_epoch is passed, repeat the dataset indefinitely
         steps_per_epoch = get_argument(self.model.fit, "steps_per_epoch", args, kwargs)
-        repeat_count = 1 if steps_per_epoch is None else -1
 
         dataset = self.make_dataset(
             x,
@@ -100,7 +99,6 @@ class LogisticRegression(BaseModel):
             step_size=step_size,
             drop_last_batch=True,
             validation_split=validation_split,
-            repeat_count=repeat_count,
         )
         if validation_split is None:
             args, kwargs = replace_argument(

@@ -336,7 +336,7 @@ def get_session_features(generator, trials, subject_id, batch_size):
 
     Parameters
     ----------
-    generator : osl_foundation.models.EphysGPT
+    generator : osl_foundation.models.MEGGPT
         Trained generator model.
     trials : np.ndarray
         3D numpy array containing trials within a session.
@@ -399,7 +399,7 @@ def get_features(generator, trials, subject_ids, batch_size):
     
     Parameters
     ----------
-    generator : osl_foundation.models.EphysGPT
+    generator : osl_foundation.models.MEGGPT
         Trained generator model.
     trials : list of np.ndarray
         List of 3D numpy arrays containing trials for each session.
