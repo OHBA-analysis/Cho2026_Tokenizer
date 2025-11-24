@@ -438,14 +438,14 @@ def compute_task_decoding_accuracy(
         train_data = ud.load_tfrecord_shards(
             f"{save_dir}/train",
             batch_size=batch_size,
-            buffer=10_000,
+            buffer=2000,
             seed=seed,
             drop_remainder=False,
         )
         val_data = ud.load_tfrecord_shards(
             f"{save_dir}/val",
             batch_size=batch_size,
-            buffer=10_000,
+            buffer=2000,
             seed=seed,
             shuffle=False,
             drop_remainder=False,
@@ -464,7 +464,7 @@ def compute_task_decoding_accuracy(
         train_data = (
             tf.data.Dataset
             .from_tensor_slices(train_data)
-            .shuffle(buffer_size=10_000, seed=seed)
+            .shuffle(buffer_size=2000, seed=seed)
             .batch(batch_size, drop_remainder=False)
             .prefetch(tf.data.AUTOTUNE)
         )
