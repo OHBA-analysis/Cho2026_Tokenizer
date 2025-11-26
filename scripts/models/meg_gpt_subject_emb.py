@@ -1,8 +1,8 @@
 """MEG-GPT model for learning new subject embeddings from the Wakeman-Henson (WH) dataset.
 
-This module provides a WH-specific variant of the EphysGPT model designed
+This module provides a WH-specific variant of the MEG-GPT model designed
 for learning new subject embeddings for the Wakeman-Henson task dataset. It retains
-compatibility with the osl_foundation framework (see osl_foundation/models/ephys_gpt.py).
+compatibility with the osl_foundation framework (see osl_foundation/models/meg_gpt.py).
 
 The model enables:
 - Learning new subject embeddings, with the weights and biases of the subject embedding
@@ -23,7 +23,7 @@ from osl_foundation.models.tokenizers import (
     MuTransformTokenizer,
     StandardQuantileTokenizer,
 )
-from osl_foundation.models.ephys_gpt import EphysGPT
+from osl_foundation.models.meg_gpt import MEGGPT
 from osl_foundation.inference.layers import (
     IdentityLayer,
     SinusoidalPositionalEncodingLayer,
@@ -523,7 +523,6 @@ class MEGGPT_SE(BaseModel):
 
         # If step_per_epoch is passed, repeat the dataset indefinitely
         steps_per_epoch = get_argument(self.model.fit, "steps_per_epoch", args, kwargs)
-        repeat_count = 1 if steps_per_epoch is None else -1
 
         dataset = self.make_dataset(
             tokenized_x,
@@ -532,7 +531,6 @@ class MEGGPT_SE(BaseModel):
             step_size=step_size,
             drop_last_batch=True,
             validation_split=validation_split,
-            repeat_count=repeat_count,
         )
         if validation_split is None:
             args, kwargs = replace_argument(
@@ -607,7 +605,7 @@ class MEGGPT_SE(BaseModel):
         pretrained_model_checkpoint = (
             self.config.model_config.pretrained_model_checkpoint
         )
-        pretrained_model = EphysGPT.load_model(
+        pretrained_model = MEGGPT.load_model(
             pretrained_model_path,
             pretrained_model_checkpoint,
             strategy=self.config.training_config.strategy,

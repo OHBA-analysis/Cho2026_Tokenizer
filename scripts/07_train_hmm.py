@@ -1,4 +1,4 @@
-"""Script for training HMMs on EphysGPT-generated data and the real Cam-CAN data."""
+"""Script for training HMMs on MEG-GPT-generated data and the real Cam-CAN data."""
 
 # Import packages
 import os

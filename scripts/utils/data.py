@@ -336,7 +336,7 @@ def get_session_features(generator, trials, subject_id, batch_size):
 
     Parameters
     ----------
-    generator : osl_foundation.models.EphysGPT
+    generator : osl_foundation.models.MEGGPT
         Trained generator model.
     trials : np.ndarray
         3D numpy array containing trials within a session.
@@ -399,7 +399,7 @@ def get_features(generator, trials, subject_ids, batch_size):
     
     Parameters
     ----------
-    generator : osl_foundation.models.EphysGPT
+    generator : osl_foundation.models.MEGGPT
         Trained generator model.
     trials : list of np.ndarray
         List of 3D numpy arrays containing trials for each session.
@@ -618,7 +618,9 @@ def load_tfrecord_shards(
     batch_size : int
         Batch size for the dataset.
     buffer : int, optional
-        Buffer size for shuffling aw. Default is 10,000.
+        Buffer size for shuffling examples. Default is 10,000.
+        If the buffer size exceeds the number of examples,
+        it will be set to the number of examples.
     dtype : tf.DType, optional
         Data type for the data. Default is tf.float32.
     seed : int or None, optional
@@ -641,9 +643,14 @@ def load_tfrecord_shards(
     # Load TFRecord filenames
     tfrecord_filenames = sorted(glob(f"{tfrecord_dir}/*.tfrecord"))
     
-    # Get data input shape
+    # Get data configurations
     tfrecord_config = load(f"{tfrecord_dir}/tfrecord_config.pkl")
     input_shape = tfrecord_config["input_shape"]
+    n_total_examples = tfrecord_config["n_total_examples"]
+
+    # Adjust buffer size if necessary
+    buffer_size = min(buffer, n_total_examples)
+    print("Using buffer size:", buffer_size)
     
     # Define feature description
     feature_description = {
@@ -683,8 +690,6 @@ def load_tfrecord_shards(
     )
     ds = ds.map(_parse_example, num_parallel_calls=tf.data.AUTOTUNE)
     if shuffle:
-        ds = ds.shuffle(buffer, seed=seed + 1)  # shuffle sequences
+        ds = ds.shuffle(buffer_size, seed=seed + 1)  # shuffle sequences
     ds = ds.batch(batch_size, drop_remainder=drop_remainder)  # group into batches
-    if shuffle:
-        ds = ds.shuffle(buffer, seed=seed + 2)  # shuffle batches
     return ds.prefetch(tf.data.AUTOTUNE)

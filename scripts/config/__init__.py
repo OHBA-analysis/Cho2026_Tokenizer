@@ -34,7 +34,7 @@ from osl_foundation.config.tokenizer_config import (
     MuTransformTokenizerModelConfig,
     StandardQuantileTokenizerModelConfig,
 )
-from config.generator_config import EphysGPTModelConfig
+from config.generator_config import MEGGPTModelConfig
 from config.logistic_regression_config import LogisticRegressionModelConfig
 
 
@@ -56,7 +56,7 @@ class Config:
     model_config: Union[
         BaseModelConfig,
         OSLTokenizerModelConfig,
-        EphysGPTModelConfig,
+        MEGGPTModelConfig,
         LogisticRegressionModelConfig,
         MuTransformTokenizerModelConfig,
         StandardQuantileTokenizerModelConfig,
@@ -252,7 +252,7 @@ def get_model_config(
 ) -> Union[
     BaseModelConfig,
     OSLTokenizerModelConfig,
-    EphysGPTModelConfig,
+    MEGGPTModelConfig,
     LogisticRegressionModelConfig,
     MuTransformTokenizerModelConfig,
     StandardQuantileTokenizerModelConfig,
@@ -272,9 +272,9 @@ def get_model_config(
     """
     MODEL_CONFIGS = {
         "osl_tokenizer": OSLTokenizerModelConfig,
-        "ephys_gpt": EphysGPTModelConfig,
-        "meg_gpt_subject_emb": EphysGPTModelConfig,
-        "meg_gpt_fine_tune": EphysGPTModelConfig,
+        "meg_gpt": MEGGPTModelConfig,
+        "meg_gpt_subject_emb": MEGGPTModelConfig,
+        "meg_gpt_fine_tune": MEGGPTModelConfig,
         "logistic_regression": LogisticRegressionModelConfig,
         "mu_transform_tokenizer": MuTransformTokenizerModelConfig,
         "standard_quantile_tokenizer": StandardQuantileTokenizerModelConfig,
@@ -291,8 +291,8 @@ def get_model_config(
 
     model_config = MODEL_CONFIGS[name]()
     if name in [
-        "osl_tokenizer", "ephys_gpt",
-        "meg_gpt_subject_emb", "meg_gpt_fine_tune", "logistic_regression",
+        "osl_tokenizer", "meg_gpt", "meg_gpt_subject_emb",
+        "meg_gpt_fine_tune", "logistic_regression",
     ]:
         model_config.set_n_channels(config.get("n_channels", None))
         model_config.set_sequence_length(config.get("sequence_length", 256))

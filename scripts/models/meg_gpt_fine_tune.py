@@ -1,8 +1,8 @@
 """MEG-GPT model for fine-tuning on the Wakeman-Henson (WH) task.
 
-This module provides a WH-specific variant of the EphysGPT model designed
+This module provides a WH-specific variant of the MEG-GPT model designed
 for fine-tuning on MEG data from the Wakeman-Henson experiment. It retains
-compatibility with the osl_foundation framework (see osl_foundation/models/ephys_gpt.py).
+compatibility with the osl_foundation framework (see osl_foundation/models/meg_gpt.py).
 
 Main differences are:
 - Pre-trained subject embeddings: the model can load and incorporate subject
@@ -515,7 +515,6 @@ class MEGGPT_FT(BaseModel):
 
         # If step_per_epoch is passed, repeat the dataset indefinitely
         steps_per_epoch = get_argument(self.model.fit, "steps_per_epoch", args, kwargs)
-        repeat_count = 1 if steps_per_epoch is None else -1
 
         dataset = self.make_dataset(
             tokenized_x,
@@ -524,7 +523,6 @@ class MEGGPT_FT(BaseModel):
             step_size=step_size,
             drop_last_batch=True,
             validation_split=validation_split,
-            repeat_count=repeat_count,
         )
         if validation_split is None:
             args, kwargs = replace_argument(

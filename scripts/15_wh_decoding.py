@@ -27,11 +27,12 @@ if __name__ == "__main__":
         "mu_transform_small", "mu_transform_tiny",
         "standard_quantile",
     ]
-    n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
-    n_sessions = 6  # number of sessions per subject
     tk_run_ids = [25, 27, 0, 0, 0, 0, 0]
     gt_run_id = 1  # pre-trained model run ID
     ft_mode = "visualize"
+    
+    n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
+    n_sessions = 6  # number of sessions per subject
     sequence_length = 80  # sequence length for task trials
 
     # Validate inputs
@@ -135,9 +136,7 @@ if __name__ == "__main__":
                     print(f"Extracting features using {name} model ...")
 
                     # Get data files
-                    data_files = sorted(glob(
-                        f"{DATA_DIR}/{name}/{tk_run_ids[i]}/*.fif"
-                    ))
+                    data_files = sorted(glob(f"{DATA_DIR}/{name}/{tk_run_ids[i]}/*.fif"))
                     n_total_sessions = len(data_files)
 
                     # Verify total number of sessions
@@ -216,6 +215,7 @@ if __name__ == "__main__":
                             config_path=f"{model_path}/within_subject/config.yml",
                             test_session="run06",
                             seed=BASE_SEED,
+                            use_tfrecord=True,
                             save_dir=f"{model_path}/within_subject/tfrecords"
                         )
                         decoding_accuracy_ns = ua.compute_task_decoding_accuracy(
@@ -223,6 +223,7 @@ if __name__ == "__main__":
                             config_path=f"{model_path}/new_subject/config.yml",
                             test_subject="sub19",
                             seed=BASE_SEED,
+                            use_tfrecord=True,
                             save_dir=f"{model_path}/new_subject/tfrecords"
                         )
                     

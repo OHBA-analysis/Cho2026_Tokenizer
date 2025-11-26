@@ -27,7 +27,7 @@ if __name__ == "__main__":
     best_gt_run_id = int(argv[3])
 
     # Set hyperparameters
-    seq_len = 81  # sequence length used in training EphysGPT models
+    seq_len = 81  # sequence length used in training MEG-GPT models
     n_channels = 52  # number of channels in the data
     loss_sequence_length = 8  # the number of tokens to predict
     tk_sequence_length = 200  # sequence length used in training the tokenizer
@@ -213,7 +213,7 @@ if __name__ == "__main__":
                 input_label = tf.cast(input_label, tf.int32)
                 input_raw = tf.cast(input_raw, tf.float32)
 
-                # Get the predicted token probabilities using EphysGPT
+                # Get the predicted token probabilities using MEG-GPT
                 model_inputs = {
                     "data": input_token,
                     "session_id": input_label,
