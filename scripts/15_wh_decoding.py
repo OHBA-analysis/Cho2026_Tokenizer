@@ -12,6 +12,7 @@ from osl_foundation import create_model
 from utils import analysis as ua
 from utils import data as ud
 from utils import plotting as up
+from utils import statistics as us
 from models import load_model
 
 
@@ -30,7 +31,7 @@ if __name__ == "__main__":
     tk_run_ids = [25, 27, 0, 0, 0, 0, 0]
     gt_run_id = 1  # pre-trained model run ID
     ft_mode = "visualize"
-    
+
     n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
     n_sessions = 6  # number of sessions per subject
     sequence_length = 80  # sequence length for task trials
@@ -43,7 +44,7 @@ if __name__ == "__main__":
             "Fine tuning mode must be either 'baseline', 'zero_shot', " +
             "'zero_shot_subject_emb', 'fine_tune', or 'visualize'."
         )
-    
+
     # Define random seed for Python random, NumPy, and TensorFlow
     BASE_SEED = 813
 
@@ -226,7 +227,7 @@ if __name__ == "__main__":
                             use_tfrecord=True,
                             save_dir=f"{model_path}/new_subject/tfrecords"
                         )
-                    
+
                     print(f"\tDecoding accuracy (within subject): {decoding_accuracy_ws}")
                     print(f"\tShape: {decoding_accuracy_ws.shape}")
 
@@ -336,25 +337,48 @@ if __name__ == "__main__":
         modes = ["Zero-Shot", "Zero-Shot (w/ Subject Emb.)", "Fine-Tuned"] * 2
         filenames = ["acc_zs_ws.png", "acc_zs_se_ws.png", "acc_ft_ws.png",
                      "acc_zs_ns.png", "acc_zs_se_ns.png", "acc_ft_ns.png"]
-        
-        for df, mode, filename in zip(dfs, modes, filenames):
-            model_names = None
-            if mode == "Zero-Shot":
-                model_names = ["causal", "noncausal"]
-                if filename.split("_")[2][:2] == "ws":
-                    model_names.append("standard_quantile")
-                else:
-                    model_names.append("mu_transform_tiny")
 
+        for df, mode, filename in zip(dfs, modes, filenames):
             up.plot_decoding_bars(
                 df,
                 mode=mode,
                 palette=color_palette_1,
-                model_names=model_names,
                 filename=filename,
                 ylim=[0.0, 0.8],
             )
 
     # ---------- Statistical Testing ---------- #
+    # Get pairwise combinations
+    pairs = [(i, i + 1) for i in range(len(model_names) - 1)]
+
+    # Set threshold
+    alpha = 0.05
+    n_tests = len(pairs)
+    print(f"Number of tests: {n_tests}")
+
+    # Perform statistical tests
+    for name, df in zip(
+        ["Within-Subject Zero-Shot", "New Subject Zero-Shot",
+         "Within-Subject Fine-Tuned", "New Subject Fine-Tuned"],
+        [df_acc_zs_ws, df_acc_zs_ns,
+         df_acc_ft_ws, df_acc_ft_ns],
+    ):
+        # Reorder metrics by performance
+        mean_accuracies = df.groupby("Model")["Accuracy"].mean()
+        order = mean_accuracies.sort_values(ascending=False).index.tolist()
+        order = [model_names.index(model) for model in order]
+
+        print("\nStatistical Analysis for", name)
+        mod_names = [model_names[i] for i in order]  # reorder model names
+        for i, j in pairs:
+            print(f"{mod_names[i].title()} vs {mod_names[j].title()}")
+            samples1 = df[df["Model"] == mod_names[i]]["Accuracy"].values
+            samples2 = df[df["Model"] == mod_names[j]]["Accuracy"].values
+            stat, pval, sig_indicator = us.stat_ind_two_samples(
+                samples1,
+                samples2,
+                alpha=alpha,
+                bonferroni_ntest=n_tests,
+            )
 
     print("Decoding completed.")
