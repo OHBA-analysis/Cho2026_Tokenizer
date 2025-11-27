@@ -126,7 +126,7 @@ class LogisticRegression(BaseModel):
 
         super().fit(*args, **kwargs)
 
-    def _pool_data(self, data):
+    def _flatten_data(self, data):
         config = self.config.model_config
         if config.feature_type == "baseline":
             x = tf.reshape(
@@ -188,8 +188,8 @@ class LogisticRegression(BaseModel):
             data = tf.squeeze(data, axis=-1)
             # data.shape = (batch_size, n_channels, model_dim)
 
-        # Pool and flatten the input data features
-        x = self._pool_data(data)
+        # Flatten the input data features
+        x = self._flatten_data(data)
         # x.shape = (batch_size, n_features)
 
         # Apply layer normalization
