@@ -1,0 +1,4 @@
+model_config:
+  n_tokens: 108
+  name: standard_quantile_tokenizer
+  standardize: false

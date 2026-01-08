@@ -1,0 +1,17 @@
+model_config:
+  n_channels: 52
+  n_tokens: 128
+  name: osl_tokenizer
+  rnn_n_units: 128
+  sequence_length: 200
+  token_dim: 10
+  token_kernel_padding: causal
+training_config:
+  batch_size: 32
+  n_epochs: 40
+  optimizer:
+    learning_rate: 1.0e-05
+  temperature_annealing:
+    end_temperature: 0.0
+    n_annealing_epochs: 40
+    n_stages: 40

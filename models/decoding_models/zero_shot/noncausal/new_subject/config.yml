@@ -1,0 +1,17 @@
+model_config:
+  model_parameters:
+    feature_type: zero_shot
+    latent_sequence_length: 40
+    model_dim: 400
+    n_task_classes: 4
+  n_channels: 52
+  name: logistic_regression
+  sequence_length: 81
+training_config:
+  batch_size: 256
+  n_epochs: 100
+  optimizer:
+    learning_rate: 1.0e-05
+  checkpoint:
+    save_dir: /well/woolrich/users/olt015/Cho2025_Tokenizer/models/decoding_models/zero_shot/noncausal/1/new_subject
+  

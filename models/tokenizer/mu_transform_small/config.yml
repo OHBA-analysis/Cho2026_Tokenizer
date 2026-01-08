@@ -1,0 +1,5 @@
+model_config:
+  mu: 107
+  n_tokens: 108
+  name: mu_transform_tokenizer
+  normalization: max_abs
