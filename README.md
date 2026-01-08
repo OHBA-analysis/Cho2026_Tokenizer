@@ -14,6 +14,8 @@ This repository contains all the scripts necessary to reproduce the analyses and
 
 For detailed descriptions of the scripts in each directory, please consult the README file located within each respective folder.
 
+In addition, the `models` directory contains configuration files specifying the hyperparameters used for all models trained in this work. Corresponding tables summarizing these hyperparameters are provided within the same directory.
+
 ## 🎯 Requirements
 
 This repository builds on the [`osl-foundation`](https://github.com/OHBA-analysis/osl-foundation) software package, which provides the `MEG-GPT` model and its associated tokenizers. To start, please install `osl-foundation` and set up its environment by following the installation guide [here](https://github.com/OHBA-analysis/osl-foundation/blob/main/README.md).
