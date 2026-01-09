@@ -14,5 +14,4 @@ tokenized_data_tfrecords/
 
 # Results and figure directories
 logs/
-models/
 plots/
