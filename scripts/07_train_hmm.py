@@ -47,7 +47,7 @@ if __name__ == "__main__":
     #       per channel and data generation (or real data).
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
     HMM_DIR = os.path.join(BASE_DIR, "models/hmm")
 

@@ -9,7 +9,7 @@ from osl_dynamics.data import load_tfrecord_dataset
 
 if __name__ == "__main__":
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data")
     TFR_DIR = os.path.join(BASE_DIR, "tokenized_data_tfrecords")
 

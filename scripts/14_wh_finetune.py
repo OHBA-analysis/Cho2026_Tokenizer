@@ -51,7 +51,7 @@ if __name__ == "__main__":
     n_sessions = 6  # number of sessions per subject (19 subjects total)
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     PROJ_DIR = "/well/woolrich/projects/wakeman_henson/summer23/src"
     MODEL_DIR = os.path.join(BASE_DIR, f"models/decoding_models/fine_tune/{ft_mode}")
 

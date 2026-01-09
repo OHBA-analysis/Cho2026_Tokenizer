@@ -1,6 +1,6 @@
 model_config:
   pretrained_model:
-    model_path: /well/woolrich/users/olt015/Cho2025_Tokenizer/models/decoding_models/fine_tune/subject_emb/noncausal/1
+    model_path: /well/woolrich/users/olt015/Cho2026_Tokenizer/models/decoding_models/fine_tune/subject_emb/noncausal/1
     checkpoint: latest
     pretrained_layers:
       - input_embedding
@@ -38,5 +38,5 @@ training_config:
   optimizer:
     learning_rate: 1.0e-05
   checkpoint:
-    save_dir: /well/woolrich/users/olt015/Cho2025_Tokenizer/models/decoding_models/fine_tune/new_subject/noncausal/1
+    save_dir: /well/woolrich/users/olt015/Cho2026_Tokenizer/models/decoding_models/fine_tune/new_subject/noncausal/1
   

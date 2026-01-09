@@ -13,5 +13,5 @@ training_config:
   optimizer:
     learning_rate: 1.0e-05
   checkpoint:
-    save_dir: /well/woolrich/users/olt015/Cho2025_Tokenizer/models/decoding_models/zero_shot/noncausal/1/new_subject
+    save_dir: /well/woolrich/users/olt015/Cho2026_Tokenizer/models/decoding_models/zero_shot/noncausal/1/new_subject
   

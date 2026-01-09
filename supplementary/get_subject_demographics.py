@@ -12,7 +12,7 @@ from glob import glob
 if __name__ == "__main__":
     # ---------- Settings ---------- #
     # Set directory paths
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     PROJ_DIR = "/well/win-camcan/shared"
     
     data_dir = os.path.join(PROJ_DIR, "spring23/src")

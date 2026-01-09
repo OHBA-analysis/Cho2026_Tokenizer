@@ -1,4 +1,4 @@
-# Cho2025_Tokenizer
+# Cho2026_Tokenizer
 
 💡 Please email SungJun Cho at sungjun.cho@ndcn.ox.ac.uk or simply open a GitHub issue if you have any questions or concerns.
 
@@ -37,4 +37,4 @@ Once these steps are complete, you can clone or download this repository to your
 All scripts in this repository were executed on the Oxford Biomedical Research Computing ([BMRC](https://www.medsci.ox.ac.uk/for-staff/resources/bmrc)) servers. Our experiments were run using two NVIDIA GPUs (V100 or A100) with CUDA 11.7.0.
 
 ## 🪪 License
-Copyright (c) 2025 [SungJun Cho](https://github.com/scho97) and [OHBA Analysis Group](https://github.com/OHBA-analysis). `Cho2025_Tokenizer` is a free and open-source software licensed under the [MIT License](https://github.com/OHBA-analysis/Cho2025_Tokenizer/blob/main/LICENSE).
+Copyright (c) 2026 [SungJun Cho](https://github.com/scho97) and [OHBA Analysis Group](https://github.com/OHBA-analysis). `Cho2026_Tokenizer` is a free and open-source software licensed under the [MIT License](https://github.com/OHBA-analysis/Cho2026_Tokenizer/blob/main/LICENSE).

@@ -11,6 +11,6 @@ The provided configurations serve as **examples**. Users must update file paths 
 Tables summarizing the hyperparameters used to train learnable tokenizers and pre-train MEG-GPT on the Cam-CAN dataset are provided below for reference.
 
 <p align="center">
-  <img src="https://github.com/OHBA-analysis/Cho2025_Tokenizer/blob/main/models/hyperparameters.png"
+  <img src="https://github.com/OHBA-analysis/Cho2026_Tokenizer/blob/main/models/hyperparameters.png"
        width="650">
 </p>

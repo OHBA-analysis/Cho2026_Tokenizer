@@ -30,7 +30,7 @@ if __name__ == "__main__":
     Fs = 250  # sampling frequency (Hz)
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "data")
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
     PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")

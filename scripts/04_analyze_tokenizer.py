@@ -39,7 +39,7 @@ if __name__ == "__main__":
     saved = False
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = "/well/win-camcan/shared/spring23/src"
     
     model_dir = os.path.join(BASE_DIR, "models/tokenizer")
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     print(f"Number of subjects in Wakeman-Henson: {n_tasks}")
 
     # Get files for data with different scanner (Nottingham MEGUK - CTF)
-    scanner_dir = "/well/woolrich/users/olt015/Cho2025_Tokenizer/notts_mrc_meguk_glasser"
+    scanner_dir = "/well/woolrich/users/olt015/Cho2026_Tokenizer/notts_mrc_meguk_glasser"
     scanner_files = sorted(glob(f"{scanner_dir}/*.npy"))
     n_scanners = len(scanner_files)
     print(f"Number of subjects in Nottingham MEGUK: {n_scanners}")

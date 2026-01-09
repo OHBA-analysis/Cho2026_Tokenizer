@@ -9,7 +9,7 @@ from utils import plotting as up
 
 if __name__ == "__main__":
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
     PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
 

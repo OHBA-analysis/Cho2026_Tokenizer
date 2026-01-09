@@ -38,7 +38,7 @@ if __name__ == "__main__":
     #       at epoch 0; later epochs will restore from checkpoints.
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data_tfrecords")
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
 

@@ -13,7 +13,7 @@ This directory contains supplementary scripts for data exploration, model analys
 For reference, we include below a figure summarizing subject demographics of the Cam-CAN dataset:
 
 <p align="center">
-  <img src="https://github.com/OHBA-analysis/Cho2025_Tokenizer/blob/main/supplementary/demographics.png"
+  <img src="https://github.com/OHBA-analysis/Cho2026_Tokenizer/blob/main/supplementary/demographics.png"
        width="600">
 </p>
 

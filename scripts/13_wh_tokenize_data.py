@@ -41,7 +41,7 @@ if __name__ == "__main__":
     n_sessions = 6  # number of sessions per subject (19 subjects in total)
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = "/well/woolrich/projects/wakeman_henson/summer23/src"
 
     tokenizer_dir = f"{BASE_DIR}/models/tokenizer/{model_type}/{tk_run_id}"

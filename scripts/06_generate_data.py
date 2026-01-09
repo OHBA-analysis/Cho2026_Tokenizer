@@ -45,7 +45,7 @@ if __name__ == "__main__":
         # NOTE: This ensures same data generation across different model types.
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
 
     data_dir = "/well/win-camcan/shared/spring23/src"

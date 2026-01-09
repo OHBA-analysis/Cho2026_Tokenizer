@@ -46,7 +46,7 @@ if __name__ == "__main__":
     BASE_SEED = 813
 
     # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2025_Tokenizer"
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     PROJ_DIR = "/well/woolrich/projects/wakeman_henson/summer23/src"
     MODEL_DIR = os.path.join(BASE_DIR, f"models/decoding_models/{ft_mode}")
     DATA_DIR = os.path.join(BASE_DIR, "tokenized_data_fif_wh")
