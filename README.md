@@ -34,6 +34,12 @@ osl-foundation==0.0.1
 
 Once these steps are complete, you can clone or download this repository to your preferred directory, and you're ready to begin!
 
+<details><summary>PyTorch version</summary>
+  <p>
+    For a PyTorch implementation of the tokenisers, please refer to the <a href="https://github.com/OHBA-analysis/EphysTokenizer"><code>EphysTokenizer</code></a> repository.
+  </p>
+</details>
+
 ### Notes on hardware
 
 All scripts in this repository were executed on the Oxford Biomedical Research Computing ([BMRC](https://www.medsci.ox.ac.uk/for-staff/resources/bmrc)) servers. Our experiments were run using two NVIDIA GPUs (V100 or A100) with CUDA 11.7.0.
