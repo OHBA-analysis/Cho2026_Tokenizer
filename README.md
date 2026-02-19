@@ -1,5 +1,7 @@
 # Cho2026_Tokenizer
 
+🔗 A Systematic Evaluation of Sample-Level Tokenization Strategies for MEG Foundation Models (Preprint DOI: [10.1101/2025.09.25.678554](https://doi.org/10.48550/arXiv.2602.16626))
+
 💡 Please email SungJun Cho at sungjun.cho@ndcn.ox.ac.uk or simply open a GitHub issue if you have any questions or concerns.
 
 ## ⚡️ Getting Started
