@@ -16,6 +16,9 @@ if __name__ == "__main__":
     fig_dir = os.path.join(PLOT_DIR, "history")
     os.makedirs(fig_dir, exist_ok=True)
 
+    # ---------- User Inputs ---------- #
+    gt_run_id = 0
+
     # ---------- Visualization ---------- #
     # Define model names
     model_names = [
@@ -42,7 +45,7 @@ if __name__ == "__main__":
     for model_name in model_names:
         up.plot_generator_history(
             model_type=model_name,
-            run_id=1,
+            run_id=gt_run_id,
             model_dir=MODEL_DIR,
             save_dir=PLOT_DIR,
         )
@@ -53,7 +56,7 @@ if __name__ == "__main__":
     for model_name in model_names:
         lrl, cr = ua.compute_log_relative_loss(
             model_type=model_name,
-            run_id=1,
+            run_id=gt_run_id,
             model_dir=MODEL_DIR,
             loss_name="val_loss",  # use "train_loss" for training loss
             plot_fit=True,

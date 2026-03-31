@@ -18,6 +18,7 @@ if __name__ == "__main__":
     # ---------- User Inputs ---------- #
     loss_sequence_length = 8
     sequence_length = 81
+    gt_run_id = 0
 
     remove_outlier_flag = False
     print("Remove outliers:", remove_outlier_flag)
@@ -37,7 +38,7 @@ if __name__ == "__main__":
 
         # Load and unpack outputs
         outputs = ud.load(
-            os.path.join(MODEL_DIR, f"{name}/1/token_pred_result.pkl")
+            os.path.join(MODEL_DIR, f"{name}/{gt_run_id}/token_pred_result.pkl")
         )
         accuracy_score, raw_inputs, recon_preds = outputs.values()
 
