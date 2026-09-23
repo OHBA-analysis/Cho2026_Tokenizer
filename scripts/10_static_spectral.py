@@ -25,7 +25,7 @@ if __name__ == "__main__":
     n_models = len(model_names)
 
     # Set hyperparameters
-    gt_run_id = 1  # generator model run ID
+    gt_run_id = 0  # generator model run ID
     n_generations = 10  # number of generations per model
     Fs = 250  # sampling frequency (Hz)
 

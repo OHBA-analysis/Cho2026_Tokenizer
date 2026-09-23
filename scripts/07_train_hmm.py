@@ -35,7 +35,7 @@ if __name__ == "__main__":
     if len(argv) == 4:
         gen_id = int(argv[3])  # generated data index
 
-    gt_run_id = 1  # trained model index
+    gt_run_id = 0  # trained model index
     n_generations = 10  # number of data generations
     n_generated_samples = 15000  # 60 seconds (250 Hz sampling rate)
 
