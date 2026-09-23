@@ -18,8 +18,8 @@ if __name__ == "__main__":
     tf_ops.gpu_growth()
 
     # Set best tokenizer run IDs
-    causal_id = 25
-    noncausal_id = 27
+    causal_id = 16
+    noncausal_id = 12
     base_id = 0  # for baseline tokenizers
 
     # Define hyperparameters
@@ -164,7 +164,15 @@ if __name__ == "__main__":
         # shape: (n_models, n_tokens)
 
     # Get total number of tokens (using test set)
-    token_nums = [len(c[c > 0]) for c in test_counts]
+    token_nums = []
+    for i, counts in enumerate(test_counts):
+        if i < 2:
+            # For learnable tokenizers, vocabulary = tokens seen during
+            # training + one token (label 0) for unseen tokens
+            token_nums.append(len(train_counts[i]) + 1)
+        else:
+            token_nums.append(len(counts[counts > 0]))
+
     np.save(f"{model_dir}/token_nums.npy", token_nums)
 
     # ---------- Visualization ---------- #
@@ -207,7 +215,7 @@ if __name__ == "__main__":
         # Sort token counts in descending order
         if name in ["causal", "noncausal"]:
             train_c = np.insert(train_c, 0, 0)  # for unseen tokens in the test data
-            test_c = test_c[test_c > 0]  # remove tokens with zero counts
+            test_c = test_c[:len(train_c)]  # labels 0..K (label 0 = unseen tokens)
         token_counts = np.sort(train_c + test_c)[::-1]
 
         up.plot_token_count_histogram(
