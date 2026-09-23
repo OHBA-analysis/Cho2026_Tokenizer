@@ -87,7 +87,7 @@ if __name__ == "__main__":
         config = f"""
             model_config:
                 name: standard_quantile_tokenizer
-                n_tokens: 108
+                n_tokens: 100
                 standardize: False
         """
         # NOTE: data already standardized
@@ -97,7 +97,7 @@ if __name__ == "__main__":
         if model_type == "mu_transform_big":
             n_tokens = 182
         if model_type == "mu_transform_small":
-            n_tokens = 108
+            n_tokens = 100
         if model_type == "mu_transform_tiny":
             n_tokens = 54
 
