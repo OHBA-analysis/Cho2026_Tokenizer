@@ -27,8 +27,8 @@ if __name__ == "__main__":
         "mu_transform_small", "mu_transform_tiny",
         "standard_quantile",
     ]
-    tk_run_ids = [25, 27, 0, 0, 0, 0, 0]
-    gt_run_id = 1  # pre-trained model run ID
+    tk_run_ids = [16, 12, 0, 0, 0, 0, 0]
+    gt_run_id = 0  # pre-trained model run ID
     ft_mode = "visualize"
 
     n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
@@ -326,38 +326,38 @@ if __name__ == "__main__":
                 ylim=[0.0, 0.8],
             )
 
-    # ---------- Statistical Testing ---------- #
-    # Get pairwise combinations
-    pairs = [(i, i + 1) for i in range(len(model_names) - 1)]
+        # ---------- Statistical Testing ---------- #
+        # Get pairwise combinations
+        pairs = [(i, i + 1) for i in range(len(model_names) - 1)]
 
-    # Set threshold
-    alpha = 0.05
-    n_tests = len(pairs)
-    print(f"Number of tests: {n_tests}")
+        # Set threshold
+        alpha = 0.05
+        n_tests = len(pairs)
+        print(f"Number of tests: {n_tests}")
 
-    # Perform statistical tests
-    for name, df in zip(
-        ["Within-Subject Zero-Shot", "New Subject Zero-Shot",
-         "Within-Subject Fine-Tuned", "New Subject Fine-Tuned"],
-        [df_acc_zs_ws, df_acc_zs_ns,
-         df_acc_ft_ws, df_acc_ft_ns],
-    ):
-        # Reorder metrics by performance
-        mean_accuracies = df.groupby("Model")["Accuracy"].mean()
-        order = mean_accuracies.sort_values(ascending=False).index.tolist()
-        order = [model_names.index(model) for model in order]
+        # Perform statistical tests
+        for name, df in zip(
+            ["Within-Subject Zero-Shot", "New Subject Zero-Shot",
+             "Within-Subject Fine-Tuned", "New Subject Fine-Tuned"],
+            [df_acc_zs_ws, df_acc_zs_ns,
+             df_acc_ft_ws, df_acc_ft_ns],
+        ):
+            # Reorder metrics by performance
+            mean_accuracies = df.groupby("Model")["Accuracy"].mean()
+            order = mean_accuracies.sort_values(ascending=False).index.tolist()
+            order = [model_names.index(model) for model in order]
 
-        print("\nStatistical Analysis for", name)
-        mod_names = [model_names[i] for i in order]  # reorder model names
-        for i, j in pairs:
-            print(f"{mod_names[i].title()} vs {mod_names[j].title()}")
-            samples1 = df[df["Model"] == mod_names[i]]["Accuracy"].values
-            samples2 = df[df["Model"] == mod_names[j]]["Accuracy"].values
-            stat, pval, sig_indicator = us.stat_ind_two_samples(
-                samples1,
-                samples2,
-                alpha=alpha,
-                bonferroni_ntest=n_tests,
-            )
+            print("\nStatistical Analysis for", name)
+            mod_names = [model_names[i] for i in order]  # reorder model names
+            for i, j in pairs:
+                print(f"{mod_names[i].title()} vs {mod_names[j].title()}")
+                samples1 = df[df["Model"] == mod_names[i]]["Accuracy"].values
+                samples2 = df[df["Model"] == mod_names[j]]["Accuracy"].values
+                stat, pval, sig_indicator = us.stat_ind_two_samples(
+                    samples1,
+                    samples2,
+                    alpha=alpha,
+                    bonferroni_ntest=n_tests,
+                )
 
     print("Decoding completed.")
