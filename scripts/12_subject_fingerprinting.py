@@ -20,7 +20,7 @@ if __name__ == "__main__":
     n_models = len(model_names)
 
     # Set hyperparameters
-    gt_run_id = 1  # generator model run ID
+    gt_run_id = 0  # generator model run ID
     n_generations = 10  # number of generations per model
     Fs = 250  # sampling frequency (Hz)
 
@@ -173,7 +173,7 @@ if __name__ == "__main__":
         palette=top_1_acc_color_palette,
         filename=f"{PLOT_DIR}/fp_top_1_accuracies.png",
         strip=True,
-        ylim=[0.05, 0.42],
+        ylim=[0.13, 0.63],
     )
 
     # Plot consistency scores
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         palette=cs_color_palette,
         filename=f"{PLOT_DIR}/fp_consistency_scores.png",
         strip=True,
-        ylim=[0.74, 0.82],
+        ylim=[0.62, 0.85],
     )
 
     # ---------- Statistical Analysis ---------- #
