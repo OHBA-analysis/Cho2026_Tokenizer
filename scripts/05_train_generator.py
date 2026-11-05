@@ -32,7 +32,7 @@ if __name__ == "__main__":
           f"| Generator Run ID: {gt_run_id} | Epoch: {epoch_idx}")
     
     # Set random seed for Python random, NumPy, and TensorFlow
-    BASE_SEED = 813
+    BASE_SEED = 813 + 1000 * gt_run_id
     set_random_seed(BASE_SEED + epoch_idx, op_determinism=False)
     # NOTE: This ensures same initialization across different model types
     #       at epoch 0; later epochs will restore from checkpoints.
