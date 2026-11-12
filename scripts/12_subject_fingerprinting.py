@@ -3,6 +3,7 @@
 # Import packages
 import os
 import numpy as np
+from sys import argv
 from utils import analysis as ua
 from utils import plotting as up
 from utils import statistics as us
@@ -19,19 +20,21 @@ if __name__ == "__main__":
     ]
     n_models = len(model_names)
 
+    # Set user arguments
+    if len(argv) != 2:
+        raise ValueError("Please provide the generator model run ID as an argument.")
+    gt_run_id = int(argv[1])  # generator model run ID
+
     # Set hyperparameters
-    gt_run_id = 0  # generator model run ID
     n_generations = 10  # number of generations per model
     Fs = 250  # sampling frequency (Hz)
-
-    # Whether to load the features and pairwise distance
-    load = True
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "data")
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
-    PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
+    PLOT_DIR = os.path.join(BASE_DIR, f"plots/generator/run{gt_run_id}")
+    os.makedirs(PLOT_DIR, exist_ok=True)
 
     # ---------- Fingerprinting Analysis ---------- #
     # Get real data path
@@ -67,6 +70,14 @@ if __name__ == "__main__":
         ]
 
         for i in range(n_generations):
+            # Check whether the features and distances of the specific generation are cached
+            gen_dir = f"{save_dir}/gen{i}"
+            load = all(
+                os.path.exists(f"{gen_dir}/{f}")
+                for f in ["real_features.npy", "generated_features.npy", "correlation_pdist.npy"]
+            )
+            print(f"Generation {i}: {'loading cached' if load else 'computing'} features")
+
             # Get TDE covariance matrices
             real_features, generated_features = ua.get_fingerprint_features(
                 feature_type="tde",

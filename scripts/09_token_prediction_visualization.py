@@ -10,11 +10,6 @@ from utils import statistics as us
 
 
 if __name__ == "__main__":
-    # ---------- Directories ---------- #
-    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
-    MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
-    PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
-
     # ---------- User Inputs ---------- #
     loss_sequence_length = 8
     sequence_length = 81
@@ -22,6 +17,13 @@ if __name__ == "__main__":
 
     remove_outlier_flag = False
     print("Remove outliers:", remove_outlier_flag)
+
+    # ---------- Directories ---------- #
+    BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
+    MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
+    PLOT_DIR = os.path.join(BASE_DIR, f"plots/generator/run{gt_run_id}")
+
+    os.makedirs(PLOT_DIR, exist_ok=True)
 
     # ---------- Load Data ---------- #
     model_names = [

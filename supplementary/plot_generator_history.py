@@ -3,21 +3,24 @@
 # Import packages
 import os
 import numpy as np
+from sys import argv
 from utils import analysis as ua
 from utils import plotting as up
 
 
 if __name__ == "__main__":
+    # ---------- User Inputs ---------- #
+    if len(argv) != 2:
+        raise ValueError("Please provide the generator model run ID as an argument.")
+    gt_run_id = int(argv[1])  # generator model run ID
+
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
-    PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
+    PLOT_DIR = os.path.join(BASE_DIR, f"plots/generator/run{gt_run_id}")
 
     fig_dir = os.path.join(PLOT_DIR, "history")
     os.makedirs(fig_dir, exist_ok=True)
-
-    # ---------- User Inputs ---------- #
-    gt_run_id = 0
 
     # ---------- Visualization ---------- #
     # Define model names

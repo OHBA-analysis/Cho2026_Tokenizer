@@ -13,8 +13,12 @@ library(readr)
 library(dplyr)
 
 # Set user hyperparameters
-metric_name = "l2"
-metric_file_path = "data/static_gt0_l2.csv"
+gt_run_id = 0  # generator model run ID
+metric_name = "l2"  # "l2" or "cos"
+metric_file_path = paste0("data/static_gt", gt_run_id, "_", metric_name, ".csv")
+output_dir = paste0("data/static_spectral/run", gt_run_id)
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+# NOTE: Paths are relative to the repository root.
 
 # ---------- Load data ----------
 df <- read_csv(metric_file_path, show_col_types = FALSE) |>
@@ -29,7 +33,7 @@ df <- read_csv(metric_file_path, show_col_types = FALSE) |>
 subj_means <- df |>
   group_by(subject, model) |>
   summarise(mean_metric = mean(metric, na.rm = TRUE), .groups = "drop")
-write_csv(subj_means, paste0("subject_means_", metric_name, ".csv"))
+write_csv(subj_means, file.path(output_dir, paste0("subject_means_", metric_name, ".csv")))
 
 # ---------- LMM: dataset as fixed; channel as random ----------
 # Use ML (REML = FALSE) for fixed-structure comparison
@@ -86,20 +90,20 @@ print(paste("Is the model singular?", sgl_check))
 # 1) EMM per model -> for reporting & violin overlay
 emm_model <- emmeans(lmm, ~ model)  # averages over datasets, channels, and subjects
 emm_model_df <- as.data.frame(emm_model)
-write_csv(emm_model_df, paste0("emm_model_", metric_name, ".csv"))
+write_csv(emm_model_df, file.path(output_dir, paste0("emm_model_", metric_name, ".csv")))
 
 # Pairwise comparisons among models with multiplicity correction
 pairs_model <- pairs(emm_model, adjust = "tukey")  # or "holm"
 pairs_model_df <- as.data.frame(summary(pairs_model))
-write_csv(pairs_model_df, paste0("pairwise_model_contrasts_", metric_name, ".csv"))
+write_csv(pairs_model_df, file.path(output_dir, paste0("pairwise_model_contrasts_", metric_name, ".csv")))
 
 # 2) EMMs per model × dataset -> for interaction plot (one line per dataset)
 emm_md <- emmeans(lmm, ~ model | dataset)  # EMMs of model within each dataset (averaged over channels and subjects)
 emm_md_df <- as.data.frame(emm_md)
-write_csv(emm_md_df, paste0("emm_model_by_dataset_", metric_name, ".csv"))
+write_csv(emm_md_df, file.path(output_dir, paste0("emm_model_by_dataset_", metric_name, ".csv")))
 
 # Save the specific line for the model:dataset interaction test (from Type III table)
 int_row <- as.data.frame(anova_lmm)
 int_row$term <- rownames(anova_lmm)
 int_row <- int_row[grep("model:dataset", int_row$term), , drop = FALSE]
-write_csv(int_row, paste0("model_dataset_interaction_test_", metric_name, ".csv"))
+write_csv(int_row, file.path(output_dir, paste0("model_dataset_interaction_test_", metric_name, ".csv")))

@@ -7,6 +7,7 @@ import pandas as pd
 import seaborn as sns
 
 from collections import defaultdict
+from sys import argv
 from osl_dynamics.analysis import static
 from utils import analysis as ua
 from utils import data as ud
@@ -24,8 +25,12 @@ if __name__ == "__main__":
     ]
     n_models = len(model_names)
 
+    # Set user arguments
+    if len(argv) != 2:
+        raise ValueError("Please provide the generator model run ID as an argument.")
+    gt_run_id = int(argv[1])  # generator model run ID
+
     # Set hyperparameters
-    gt_run_id = 0  # generator model run ID
     n_generations = 10  # number of generations per model
     Fs = 250  # sampling frequency (Hz)
 
@@ -33,7 +38,8 @@ if __name__ == "__main__":
     BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "data")
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
-    PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
+    PLOT_DIR = os.path.join(BASE_DIR, f"plots/generator/run{gt_run_id}")
+    os.makedirs(PLOT_DIR, exist_ok=True)
 
     # ---------- Load Data ---------- #
     print("Loading data ...")
@@ -168,7 +174,7 @@ if __name__ == "__main__":
     # before this step in order to proceed with the visualizations.
     ###################################
 
-    METRIC_DIR = os.path.join(DATA_DIR, "static_spectral")
+    METRIC_DIR = os.path.join(DATA_DIR, f"static_spectral/run{gt_run_id}")
     if not os.path.exists(METRIC_DIR):
         raise ValueError(
             "Statistical test results do not exist. Please run the R script first."
