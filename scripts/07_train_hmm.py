@@ -17,11 +17,16 @@ if __name__ == "__main__":
     tf_ops.gpu_growth()
 
     # Set user arguments
-    if len(argv) < 3:
+    if len(argv) < 2:
+        raise ValueError("Please provide the model type as the first argument.")
+    model_type = argv[1]  # model type ("real" for real data)
+    if model_type == "real":
+        if len(argv) != 3:
+            raise ValueError("Usage: 07_train_hmm.py real <channel>")
+    elif len(argv) != 5:
         raise ValueError(
-            "Please provide the model type, channel index, (and generated data ID) as arguments."
+            "Usage: 07_train_hmm.py <model_type> <channel> <gt_run_id> <gen_id>"
         )
-    model_type = argv[1]  # model type
     channel = int(argv[2])  # channel index
 
     # Channel Information: [
@@ -32,16 +37,16 @@ if __name__ == "__main__":
     #   22 (prefrontal),
     # ]
 
-    if len(argv) == 4:
-        gen_id = int(argv[3])  # generated data index
+    if model_type != "real":
+        gt_run_id = int(argv[3])  # trained model index
+        gen_id = int(argv[4])  # generated data index
 
-    gt_run_id = 0  # trained model index
     n_generations = 10  # number of data generations
     n_generated_samples = 15000  # 60 seconds (250 Hz sampling rate)
 
     # Set random seed for Python random, NumPy, and TensorFlow
     BASE_SEED = 813
-    seed = BASE_SEED + (gen_id if len(argv) == 4 else 10) * 10_000 + channel
+    seed = BASE_SEED + (10 if model_type == "real" else gen_id) * 10_000 + channel
     set_random_seed(seed, op_determinism=False)
     # NOTE: This ensures same HMM training across different model types
     #       per channel and data generation (or real data).
@@ -51,15 +56,19 @@ if __name__ == "__main__":
     MODEL_DIR = os.path.join(BASE_DIR, "models/generator")
     HMM_DIR = os.path.join(BASE_DIR, "models/hmm")
 
-    generator_dir = os.path.join(MODEL_DIR, f"{model_type}/{gt_run_id}")
-    hmm_dir = os.path.join(HMM_DIR, f"{model_type}/{gt_run_id}/ch{channel}")
-    plot_dir = os.path.join(BASE_DIR, "plots/generator/burst_detection")
+    if model_type == "real":
+        hmm_dir = os.path.join(HMM_DIR, f"real/ch{channel}")
+    else:
+        generator_dir = os.path.join(MODEL_DIR, f"{model_type}/{gt_run_id}")
+        hmm_dir = os.path.join(HMM_DIR, f"{model_type}/{gt_run_id}/ch{channel}/{gen_id}")
+    plot_dir = os.path.join(BASE_DIR, "plots/real/burst_detection")
     os.makedirs(hmm_dir, exist_ok=True)
-    os.makedirs(plot_dir, exist_ok=True)
 
     # ---------- Load and prepare data ---------- #
     # Plot channel location
-    plot_channel_location(channel, plot_dir)
+    if model_type == "real":
+        os.makedirs(plot_dir, exist_ok=True)
+        plot_channel_location(channel, plot_dir)
 
     # Load data
     if model_type == "real":
@@ -109,9 +118,6 @@ if __name__ == "__main__":
     """
 
     # Run HMM training
-    if model_type != "real":
-        hmm_dir = f"{hmm_dir}/{gen_id}"
-    
     run_pipeline(
         config,
         output_dir=hmm_dir,
