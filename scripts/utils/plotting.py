@@ -466,13 +466,13 @@ def plot_psd(
             )
         
         # Adjust axis settings
-        ax.set_ylim([None, 0.13])
+        ax.set_ylim([None, 0.15])
         ax.spines[["top", "bottom", "left", "right"]].set_linewidth(1.5)
         if i >= n_cols:
             ax.set_xlabel("Frequency (Hz)", fontsize=fontsize)
         if i % n_cols == 0:
             ax.set_ylabel("PSD (a.u.)", fontsize=fontsize)
-        ax.set_title(titles[i], fontsize=fontsize, fontweight="bold")
+        ax.set_title(titles[i], fontsize=fontsize)
         ax.tick_params(labelsize=fontsize)
     
     save(fig, f"{plot_dir}/psd_mean_channel.png")
@@ -500,7 +500,7 @@ def plot_psd(
         )
 
         # Adjust axis settings
-        ax.set_ylim([None, 0.12])
+        ax.set_ylim([None, 0.14])
         ax.spines[["top", "bottom", "left", "right"]].set_linewidth(1.5)
         if i >= n_cols:
             ax.set_xlabel("Frequency (Hz)", fontsize=fontsize)
