@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 import yaml
 from numpy.linalg import norm
+from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import pdist, squareform
 from sklearn.metrics import accuracy_score
 from osl_dynamics.analysis import static
@@ -94,6 +95,38 @@ def calculate_summary_stats(stc, sampling_frequency):
         stc, sampling_frequency=sampling_frequency
     )
     return fo, lt, intv, sr
+
+
+def match_states_by_spectrum(ref_psd, psd):
+    """Matches HMM states to reference states by their group-mean spectra.
+
+    Each state of `psd` is paired with the reference state whose group-mean
+    power spectrum is closest (L2 distance), minimizing the total distance
+    over all pairings (Hungarian algorithm). Unlike covariance matching with
+    the RV coefficient, this is sensitive to state power, so it can match
+    states that share a spectral shape but differ in power.
+
+    Parameters
+    ----------
+    ref_psd : np.ndarray
+        Reference state spectra. Shape is (n_subjects, n_states, n_freqs).
+    psd : np.ndarray
+        State spectra to reorder. Shape is (n_subjects, n_states, n_freqs).
+        The number of subjects may differ from `ref_psd`.
+
+    Returns
+    -------
+    order : np.ndarray
+        State order such that `psd[:, order]` matches `ref_psd`.
+        Shape is (n_states,).
+    """
+    ref_mean = np.mean(ref_psd, axis=0)  # shape: (n_states, n_freqs)
+    mean = np.mean(psd, axis=0)
+    if ref_mean.shape != mean.shape:
+        raise ValueError("ref_psd and psd must have the same number of states and frequencies.")
+    cost = norm(ref_mean[:, None, :] - mean[None, :, :], axis=-1)
+    # cost[j, k]: distance between reference state j and state k
+    return linear_sum_assignment(cost)[1]
 
 
 def get_fingerprint_features(

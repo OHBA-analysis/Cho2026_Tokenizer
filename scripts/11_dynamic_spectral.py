@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from collections import defaultdict
+from sys import argv
 from osl_dynamics.inference import modes
 from utils import analysis as ua
 from utils import data as ud
@@ -27,8 +28,12 @@ if __name__ == "__main__":
     # Set channel indices
     ch_indices = [0, 4, 13, 18, 22]
 
+    # Set user arguments
+    if len(argv) != 2:
+        raise ValueError("Please provide the generator model run ID as an argument.")
+    gt_run_id = int(argv[1])  # generator model run ID
+
     # Set hyperparameters
-    gt_run_id = 0  # generator model run ID
     n_generations = 10  # number of generations per model
     Fs = 100  # sampling frequency (Hz)
 
@@ -36,10 +41,12 @@ if __name__ == "__main__":
     BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
     DATA_DIR = os.path.join(BASE_DIR, "data")
     MODEL_DIR = os.path.join(BASE_DIR, "models/hmm")
-    PLOT_DIR = os.path.join(BASE_DIR, "plots/generator")
+    PLOT_DIR = os.path.join(BASE_DIR, f"plots/generator/run{gt_run_id}")
 
     fig_dir = os.path.join(PLOT_DIR, "burst_detection")
+    real_fig_dir = os.path.join(BASE_DIR, "plots/real/burst_detection")
     os.makedirs(fig_dir, exist_ok=True)
+    os.makedirs(real_fig_dir, exist_ok=True)
 
     # ---------- Load Parameters ---------- #
     print("Loading parameters ...")
@@ -51,7 +58,7 @@ if __name__ == "__main__":
 
             inf_params[name][f"ch{c}"] = {}
             if name == "real":
-                mod_dir = f"{MODEL_DIR}/real/{gt_run_id}/ch{c}"
+                mod_dir = f"{MODEL_DIR}/real/ch{c}"  # shared across generator runs
 
                 # Model parameters
                 with open(f"{mod_dir}/inf_params/alp.pkl", "rb") as f:
@@ -91,11 +98,17 @@ if __name__ == "__main__":
                     gen_covs = np.load(f"{mod_dir}/inf_params/covs.npy")
                     # shape: (n_states, n_channels, n_channels)
 
-                    # Match order to real data
-                    real_covs = inf_params["real"][f"ch{c}"]["covs"]
-                    order = modes.match_covariances(real_covs, gen_covs, return_order=True)[1]
+                    psd = np.squeeze(np.load(f"{mod_dir}/spectra/psd.npy"))
+                    coh = np.squeeze(np.load(f"{mod_dir}/spectra/coh.npy"))
+                    # shape: (n_subjects, n_states, n_frequencies); only one channel
+
+                    # Match state order to real data based on group-mean state spectra
+                    real_psd = inf_params["real"][f"ch{c}"]["psd"]
+                    order = ua.match_states_by_spectrum(real_psd, psd)
                     # NOTE: This is an order between real and generated data for specific channel and data generation.
                     # It does not ensure the same order across different channels or data generations.
+                    # NOTE: Covariance matching (modes.match_covariances, RV coefficient) ignores state power, so it
+                    # can mismatch states that share a spectral shape and differ mainly in power (e.g., channel 22).
 
                     # Model parameters
                     alpha_reordered = [alp[:, order] for alp in alpha]
@@ -111,10 +124,6 @@ if __name__ == "__main__":
                     # Spectral properties
                     inf_params[name][f"ch{c}"][gen_id]["f"] = np.load(f"{mod_dir}/spectra/f.npy")
                     # shape: (n_frequencies,)
-                    psd = np.squeeze(np.load(f"{mod_dir}/spectra/psd.npy"))
-                    coh = np.squeeze(np.load(f"{mod_dir}/spectra/coh.npy"))
-                    # shape: (n_subjects, n_states, n_frequencies); only one channel
-
                     inf_params[name][f"ch{c}"][gen_id]["psd"] = psd[:, order, :]
                     inf_params[name][f"ch{c}"][gen_id]["coh"] = coh[:, order, :]
 
@@ -129,6 +138,9 @@ if __name__ == "__main__":
 
         # ---------- Visualization for Single Channel (and One Data Generation) ---------- #
         print(f"Visualizing results for model [{name}] ...")
+
+        # Select output directory (real data figures are shared across generator runs)
+        plot_fig_dir = real_fig_dir if name == "real" else fig_dir
 
         # Select parameters to visualize
         if name == "real":
@@ -148,7 +160,7 @@ if __name__ == "__main__":
             cmap="Set3",
             y_labels=["State Time Course"],
             fig_kwargs={"figsize": (11, 3)},
-            filename=os.path.join(fig_dir, f"stc_{name}.png"),
+            filename=os.path.join(plot_fig_dir, f"stc_{name}.png"),
         )  # plots for one example subject
 
         # Plot state spectra
@@ -157,7 +169,7 @@ if __name__ == "__main__":
         up.plot_dynamic_psds(
             freq=ex_params["f"],
             psds=ex_params["psd"],
-            filename=os.path.join(fig_dir, f"psd_{name}.png"),
+            filename=os.path.join(plot_fig_dir, f"psd_{name}.png"),
             colors=["#e2685c", "#b13c6c", "#6c2b6d"],
             xlim=[-0.1, 46],
             ylim=[-0.005, 0.145],
@@ -169,7 +181,7 @@ if __name__ == "__main__":
 
         up.plot_hmm_loss(
             loss=ex_params["loss"],
-            filename=os.path.join(fig_dir, f"loss_{name}.png"),
+            filename=os.path.join(plot_fig_dir, f"loss_{name}.png"),
         )
 
         # Plot summary statistics
@@ -188,7 +200,7 @@ if __name__ == "__main__":
         up.plot_summary_stats(
             summary_stats,
             metric_name="sr",
-            filename=os.path.join(fig_dir, f"sr_{name}.png"),
+            filename=os.path.join(plot_fig_dir, f"sr_{name}.png"),
             palette={
                 0: "#e2685c",
                 1: "#b13c6c",
@@ -264,7 +276,7 @@ if __name__ == "__main__":
     # before this step in order to proceed with the visualizations.
     ###################################
 
-    METRIC_DIR = os.path.join(DATA_DIR, "dynamic_spectral")
+    METRIC_DIR = os.path.join(DATA_DIR, f"dynamic_spectral/run{gt_run_id}")
     if not os.path.exists(METRIC_DIR):
         raise ValueError(
             "Statistical test results do not exist. Please run the R script first."
@@ -349,7 +361,7 @@ if __name__ == "__main__":
 
     # Plot model × dataset interaction for L2 distances (EMMs) of burst rates
     print("Visualizing model-dataset interaction for L2 distances of burst rates ...")
-    emm_md_l2 = pd.read_csv("data/dynamic_spectral/emm_model_by_dataset_l2_sr.csv")
+    emm_md_l2 = pd.read_csv(f"{METRIC_DIR}/emm_model_by_dataset_l2_sr.csv")
     emm_md_l2["model"] = pd.Categorical(emm_md_l2["model"], categories=model_names, ordered=True)
 
     up.plot_model_dataset_interaction(
