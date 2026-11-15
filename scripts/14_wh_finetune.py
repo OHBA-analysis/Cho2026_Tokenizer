@@ -41,10 +41,10 @@ if __name__ == "__main__":
     #       3) 'new_subject': fine-tune on all sessions of subjects 1-18, validate on subject 19
 
     # Set random seed for Python random, NumPy, and TensorFlow
-    BASE_SEED = 813
+    BASE_SEED = 813 + 1000 * pt_run_id
     set_random_seed(BASE_SEED, op_determinism=False)
-    # NOTE: This ensures same initialization across different model types
-    #       at epoch 0.
+    # NOTE: This ensures same initialization across different model types at epoch 0;
+    #       the seed depends on the generator run so that runs are independent.
 
     # Set hyperparameters
     n_subjects = 19  # number of subjects
