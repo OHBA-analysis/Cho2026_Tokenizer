@@ -1,12 +1,18 @@
-"""Script for Wakeman-Henson task decoding."""
+"""Script for Wakeman-Henson task decoding.
+
+Usage: 15_wh_decoding.py baseline
+       15_wh_decoding.py <zero_shot|fine_tune|visualize> <gt_run_id>
+"""
 
 # Import packages
 import gc
 import os
 import numpy as np
 import pandas as pd
+import shutil
 import tensorflow as tf
 from glob import glob
+from sys import argv
 from osl_dynamics.inference import tf_ops
 from osl_foundation import create_model
 from utils import analysis as ua
@@ -28,22 +34,36 @@ if __name__ == "__main__":
         "standard_quantile",
     ]
     tk_run_ids = [16, 12, 0, 0, 0, 0, 0]
-    gt_run_id = 0  # pre-trained model run ID
-    ft_mode = "visualize"
 
-    n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
-    n_sessions = 6  # number of sessions per subject
-    sequence_length = 80  # sequence length for task trials
+    # Set user arguments
+    if len(argv) < 2:
+        raise ValueError(
+            "Please provide the decoding mode (and the generator run ID unless the mode is 'baseline')."
+        )
 
-    # Validate inputs
+    ft_mode = argv[1]
     if ft_mode not in ["baseline", "zero_shot", "fine_tune", "visualize"]:
         raise ValueError(
             "Fine tuning mode must be either 'baseline', " +
             "'zero_shot', 'fine_tune', or 'visualize'."
         )
+    if ft_mode == "baseline":
+        if len(argv) != 2:
+            raise ValueError("The 'baseline' mode takes no generator run ID.")
+        gt_run_id = None
+    else:
+        if len(argv) != 3:
+            raise ValueError(f"Please provide the generator run ID for the '{ft_mode}' mode.")
+        gt_run_id = int(argv[2])  # pre-trained model run ID
+
+    n_subjects = 19  # number of subjects in the Wakeman-Henson dataset
+    n_sessions = 6  # number of sessions per subject
+    sequence_length = 80  # sequence length for task trials
 
     # Define random seed for Python random, NumPy, and TensorFlow
-    BASE_SEED = 813
+    BASE_SEED = 813 if gt_run_id is None else 813 + 1000 * gt_run_id
+    # NOTE: The seed depends on the generator run so that runs are independent;
+    #       the baseline doesn't use MEG-GPT and keeps 813.
 
     # ---------- Directories ---------- #
     BASE_DIR = "/well/woolrich/users/olt015/Cho2026_Tokenizer"
@@ -53,8 +73,11 @@ if __name__ == "__main__":
 
     # ---------- Feature Extraction & Task Decoding ---------- #
     if ft_mode != "visualize":
-        # Create directories to save features and figures
+        # Create directories to save decoding accuracies
+        # (baseline results are shared across generator runs)
         save_dir = f"{BASE_DIR}/data/wh_decoding/{ft_mode}"
+        if ft_mode != "baseline":
+            save_dir = f"{save_dir}/run{gt_run_id}"
         os.makedirs(save_dir, exist_ok=True)
 
         # Get subject IDs
@@ -221,11 +244,21 @@ if __name__ == "__main__":
                     ud.save(decoding_accuracy_ws, decoding_ws_save_path)
                     ud.save(decoding_accuracy_ns, decoding_ns_save_path)
 
+                    # Remove the temporary feature TFRecords once the accuracies are saved
+                    if ft_mode == "zero_shot":
+                        for task_type in ["within_subject", "new_subject"]:
+                            shutil.rmtree(f"{model_path}/{task_type}/tfrecords", ignore_errors=True)
+                    # NOTE: They take ~96 GB per task type and model and are only used to
+                    #       train the decoders above.
+
                 else:
                     print(f"\tDecoding accuracies for {name} model already exist. Skipping computations.")
 
     # ---------- Visualization ---------- #
     if ft_mode == "visualize":
+        PLOT_DIR = os.path.join(BASE_DIR, f"plots/decoding_models/run{gt_run_id}")
+        os.makedirs(PLOT_DIR, exist_ok=True)
+
         # Plot model training history
         # (i.e., training/validation loss and top 1 accuracy curves)
         for mode in ["baseline", "zero_shot", "fine_tune"]:
@@ -278,8 +311,8 @@ if __name__ == "__main__":
         acc_base_ns["baseline"] = ud.load(f"{save_dir}/baseline/decoding_accuracies_ns.pkl")
 
         for name in model_names:
-            ws_path = f"{save_dir}/{{0}}/decoding_accuracies_ws_{{1}}.pkl"
-            ns_path = f"{save_dir}/{{0}}/decoding_accuracies_ns_{{1}}.pkl"
+            ws_path = f"{save_dir}/{{0}}/run{gt_run_id}/decoding_accuracies_ws_{{1}}.pkl"
+            ns_path = f"{save_dir}/{{0}}/run{gt_run_id}/decoding_accuracies_ns_{{1}}.pkl"
 
             acc_zs_ws[name] = ud.load(ws_path.format("zero_shot", name))
             acc_ft_ws[name] = ud.load(ws_path.format("fine_tune", name))
@@ -307,7 +340,7 @@ if __name__ == "__main__":
                 df,
                 mode="Baseline",
                 palette={"baseline": "#787878FF"},
-                filename=filename,
+                filename=os.path.join(PLOT_DIR, filename),
                 ylim=[0.0, 0.8],
             )
 
@@ -322,7 +355,7 @@ if __name__ == "__main__":
                 df,
                 mode=mode,
                 palette=color_palette_1,
-                filename=filename,
+                filename=os.path.join(PLOT_DIR, filename),
                 ylim=[0.0, 0.8],
             )
 
